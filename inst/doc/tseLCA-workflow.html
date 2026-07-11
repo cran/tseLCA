@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>tseLCA Workflow</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">tseLCA Workflow</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tseLCA)</span></code></pre></div>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p><code>tseLCA</code> implements the BCH and ML bias-adjusted
+three-step estimators for latent class analysis (LCA) with covariates
+and distal outcomes, following the methodological framework for both BCH
+and Vermunt’s ML approaches from Bakk, Tekle &amp; Vermunt (2013).
+<code>tseLCA</code> also builds on top of the two-step LCA estimation
+procedure outlined by Bakk &amp; Kuha (2018), and using the R package
+<code>multilevLCA</code> for efficient measurement model estimation from
+Lyrvall et al. (2025). <code>tseLCA</code> provides analytic sandwich
+variance estimation that propagates measurement uncertainty through the
+classification-error correction in the final step.</p>
+<p>The three-step approach separates the model into:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Step 1</strong> — Estimate the LCA measurement model
+(class-conditional item probabilities and class prevalences).</li>
+<li><strong>Step 2</strong> — Assign posterior class probabilities and
+compute the misclassification matrix.</li>
+<li><strong>Step 3</strong> — Estimate the structural model (covariate
+effects or distal outcome means) using the bias-adjusted weights.</li>
+</ol>
+<hr />
+</div>
+<div id="synthetic-data" class="section level2">
+<h2>Synthetic data</h2>
+<p>The built-in data-generating process replicates the design of Bakk
+&amp; Kuha (2018). Each dataset has six binary indicators (<span class="math inline">\(Y_1, \ldots, Y_6\)</span>) drawn from a
+three-class LCA, plus either a covariate <span class="math inline">\(Z_p
+\sim \text{Uniform}\{1,\ldots,5\}\)</span> predicting class membership,
+or a continuous distal outcome <span class="math inline">\(Z_o\)</span>
+predicted by class membership.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># High separation: P(Y_h = 1 | class) = 0.9 / 0.1</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">500</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">separation =</span> <span class="st">&quot;high&quot;</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">scenario =</span> <span class="st">&quot;covariate&quot;</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">1</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">head</span>(d)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt;   Y1 Y2 Y3 Y4 Y5 Y6 X Zp</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; 1  1  1  1  0  0  0 2  1</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; 2  0  0  0  0  0  0 3  4</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; 3  1  0  1  0  0  0 2  1</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; 4  1  1  0  1  1  1 1  2</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; 5  0  0  0  0  0  0 3  5</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; 6  1  1  1  1  1  1 1  3</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Low separation: P(Y_h = 1 | class) = 0.7 / 0.3</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co"># Zp and X are identical to &#39;d&#39; because seed = 1</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>d.low <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">500</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">separation =</span> <span class="st">&quot;low&quot;</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">scenario =</span> <span class="st">&quot;covariate&quot;</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">1</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>)</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="fu">head</span>(d.low)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;   Y1 Y2 Y3 Y4 Y5 Y6 X Zp</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; 1  1  1  1  0  0  0 2  1</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; 2  1  0  0  1  0  1 3  4</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; 3  0  0  1  0  0  0 2  1</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; 4  1  1  0  0  1  1 1  2</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; 5  0  0  1  1  1  0 3  5</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; 6  1  1  1  1  1  1 1  3</span></span></code></pre></div>
+<hr />
+</div>
+<div id="step-1-measurement-model" class="section level2">
+<h2>Step 1: Measurement model</h2>
+<p><code>three_step()</code> with no <code>Zp.names</code> or
+<code>Zo.name</code> fits the measurement model only, returning a
+<code>tseLCA_measurement</code> object. Internally this calls
+<code>multilevLCA::multiLCA()</code> with random restarts when entropy
+<span class="math inline">\(R^2\)</span> is low.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>d.measurement <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">measurement.tol =</span> <span class="fl">1e-8</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>)</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="fu">summary</span>(d.measurement)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Measurement Model --------------------------------</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1455.5052</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; AIC            : 2951.0104</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; BIC            : 3035.3025</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8780</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; Class prevalences:</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt;             </span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; P(C1) 0.3570</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; P(C2) 0.3308</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; P(C3) 0.3122</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;names&quot;)</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; [1] &quot;C1&quot; &quot;C2&quot; &quot;C3&quot;</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; Item-response probabilities (P(Y=1|class)):</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt;             C1     C2     C3</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; P(Y1|C) 0.9237 0.8621 0.1187</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt; P(Y2|C) 0.9083 0.9219 0.1178</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt; P(Y3|C) 0.9148 0.9571 0.0731</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#&gt; P(Y4|C) 0.8843 0.1481 0.0875</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="co">#&gt; P(Y5|C) 0.8817 0.1340 0.1118</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="co">#&gt; P(Y6|C) 0.9174 0.0889 0.1252</span></span></code></pre></div>
+<p>With low separation the measurement model can struggle to find the
+global maximum. Use <code>iter.measurement</code> to trigger the number
+of random restarts whenever entropy <span class="math inline">\(R^2\)</span> falls below
+<code>R2.threshold</code>.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>d.low.measurement <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">iter.measurement =</span> <span class="dv">10</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">R2.threshold =</span> <span class="fl">0.9</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>)</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="fu">summary</span>(d.low.measurement)</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Measurement Model --------------------------------</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -2019.2458</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; AIC            : 4078.4916</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; BIC            : 4162.7837</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.3327</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; Class prevalences:</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt;             </span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; P(C1) 0.2753</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; P(C2) 0.4551</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; P(C3) 0.2696</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;names&quot;)</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt; [1] &quot;C1&quot; &quot;C2&quot; &quot;C3&quot;</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt; Item-response probabilities (P(Y=1|class)):</span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="co">#&gt;             C1     C2     C3</span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="co">#&gt; P(Y1|C) 0.7328 0.6418 0.3345</span></span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="co">#&gt; P(Y2|C) 0.5723 0.7549 0.3223</span></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co">#&gt; P(Y3|C) 0.6937 0.7101 0.3036</span></span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co">#&gt; P(Y4|C) 0.6846 0.4588 0.2105</span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a><span class="co">#&gt; P(Y5|C) 0.6947 0.4058 0.3787</span></span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="co">#&gt; P(Y6|C) 0.8651 0.3551 0.2456</span></span></code></pre></div>
+<p>The <code>plot()</code> S3 method delegates to
+<code>multilevLCA</code>’s item-profile plot.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">plot</span>(d.measurement)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+<hr />
+</div>
+<div id="two-step-estimates" class="section level2">
+<h2>Two-step estimates</h2>
+<p><code>fitZ_from_fit0()</code> fixes the measurement parameters at
+their Step-1 values and estimates multinomial logit coefficients <span class="math inline">\(\gamma\)</span> via EM. These two-step estimates
+serve as starting values for Step 3 and are generally close to the final
+three-step estimates.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>d.fitZ <span class="ot">&lt;-</span> <span class="fu">fitZ_from_fit0</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">fit0 =</span> d.measurement<span class="sc">$</span>measurement_model<span class="sc">$</span>fit0,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>)</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co"># True slopes: -1 (C2) and +1 (C3) relative to C1</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>d.fitZ<span class="sc">$</span>mGamma</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt;                   C2         C3</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934130 -3.4524271</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411383  0.8971774</span></span></code></pre></div>
+<p>Starting values from the high-separation fit can be passed to the
+low-separation fit to help it converge.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>d.low.fitZ <span class="ot">&lt;-</span> <span class="fu">fitZ_from_fit0</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">fit0 =</span> d.low.measurement<span class="sc">$</span>measurement_model<span class="sc">$</span>fit0,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">starting_val =</span> d.fitZ<span class="sc">$</span>mGamma</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>)</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>d.low.fitZ<span class="sc">$</span>mGamma</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt;                   C2         C3</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; Intercept  3.0446359 -3.6948016</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9832601  0.9487392</span></span></code></pre></div>
+<hr />
+</div>
+<div id="three-step-estimation" class="section level2">
+<h2>Three-Step estimation</h2>
+<div id="ml-estimator-default" class="section level3">
+<h3>ML estimator (default)</h3>
+<p>A single <code>three_step()</code> call handles all three steps. By
+default it uses the ML correction of Vermunt (2010) and modal class
+assignment.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>d.three_step <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>)</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="fu">summary</span>(d.three_step)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0650</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1299</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7143</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8693  (covariate-adjusted)</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.0411    0.3237  6.3050 &lt; 0.001 ***</span></span>
+<span id="cb9-24"><a href="#cb9-24" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.8821    0.1406 -6.2730 &lt; 0.001 ***</span></span>
+<span id="cb9-25"><a href="#cb9-25" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.4836    0.5913 -5.8913 &lt; 0.001 ***</span></span>
+<span id="cb9-26"><a href="#cb9-26" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.8985    0.1435  6.2606 &lt; 0.001 ***</span></span>
+<span id="cb9-27"><a href="#cb9-27" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb9-28"><a href="#cb9-28" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<p>The standard <code>coef()</code> and <code>vcov()</code> S3 methods
+work on any <code>tseLCA</code> object.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">coef</span>(d.three_step)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt;                   C2         C3</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt; Intercept  2.0410764 -3.4835616</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt; Zp        -0.8820801  0.8984978</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="fu">vcov</span>(d.three_step)</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;              Intercept:C2        Zp:C2 Intercept:C3        Zp:C3</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; Intercept:C2  0.104798063 -0.041343485  -0.01048872  0.001510799</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; Zp:C2        -0.041343485  0.019772531   0.01121397 -0.001932282</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; Intercept:C3 -0.010488717  0.011213968   0.34964328 -0.082842095</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; Zp:C3         0.001510799 -0.001932282  -0.08284210  0.020597096</span></span></code></pre></div>
+</div>
+<div id="proportional-assignment" class="section level3">
+<h3>Proportional assignment</h3>
+<p>With modal assignment (<code>use.modal.assignment = TRUE</code>, the
+default), the Jacobian in the measurement-uncertainty correction is not
+mathematically defined. Setting
+<code>use.modal.assignment = FALSE</code> uses soft posterior weights
+throughout, giving an analytic Jacobian and is recommended when
+separation is moderate or low. When
+<code>use.modal.assignment = TRUE</code>, the Jacobian <span class="math inline">\(\frac{\partial\theta_2}{\partial\theta_1}\)</span>
+computed using the full posterior weights (e.g., behaving as if
+<code>use.modal.assignment = FALSE</code>) to maintain well-defined
+derivatives, though three-step estimates would still be computed with
+modal assignment as specified. The different is negligible when
+separation is high.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>d.three_step.prop <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>)</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.prop)</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0617</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1234</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7078</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8680  (covariate-adjusted)</span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.1096    0.3287  6.4183 &lt; 0.001 ***</span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.9121    0.1460 -6.2456 &lt; 0.001 ***</span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.6508    0.6430 -5.6777 &lt; 0.001 ***</span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.9367    0.1547  6.0563 &lt; 0.001 ***</span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+</div>
+<div id="simple-robust-standard-errors" class="section level3">
+<h3>Simple (robust) standard errors</h3>
+<p>Setting <code>use.simple.cov = TRUE</code> skips the
+measurement-uncertainty correction and returns the robust sandwich SEs
+from Step 3 only. When separation is high the correction is negligible,
+so this is a useful computational shortcut for large samples.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>d.three_step.simple <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">use.simple.cov =</span> <span class="cn">TRUE</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>)</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.simple)</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0650</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1299</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7143</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8693  (covariate-adjusted)</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.0411    0.3214  6.3504 &lt; 0.001 ***</span></span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.8821    0.1394 -6.3257 &lt; 0.001 ***</span></span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.4836    0.5876 -5.9281 &lt; 0.001 ***</span></span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.8985    0.1426  6.3008 &lt; 0.001 ***</span></span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb12-29"><a href="#cb12-29" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+</div>
+<div id="bch-estimator" class="section level3">
+<h3>BCH estimator</h3>
+<p>The BCH correction of Bolck, Croon &amp; Hagenaars (2004) is
+available via <code>use.bch = TRUE</code>. It works well with high
+separation but can produce an ill-conditioned Hessian when separation is
+low (resulting in a covariance matrix that is not positive
+semi-definite), in which case the ML estimator is preferred.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>d.three_step.bch <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">use.bch =</span> <span class="cn">TRUE</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>)</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.bch)</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; Estimator      : BCH</span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.2863</span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.5726</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a><span class="co">#&gt; BIC            : 2927.1569</span></span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8700  (covariate-adjusted)</span></span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   1.9554    0.3111  6.2844 &lt; 0.001 ***</span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.8424    0.1304 -6.4613 &lt; 0.001 ***</span></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.4634    0.5697 -6.0790 &lt; 0.001 ***</span></span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.8923    0.1385  6.4412 &lt; 0.001 ***</span></span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<p>BCH with low-separation data can fail to produce a positive
+semi-definite Hessian. The ML estimator with proportional assignment is
+more reliable in this setting.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Not run in vignette build (slow and and produces warnings)</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>bch.fail <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="at">use.bch =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  <span class="at">maxIter.measurement =</span> <span class="dv">2000</span>,</span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  <span class="at">iter.measurement =</span> <span class="dv">10</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># Preferred approach for low separation</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>d.low.three_step.prop <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>)</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="fu">summary</span>(d.low.three_step.prop)</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1979.3372</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; AIC            : 4038.6744</span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; BIC            : 4207.2588</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.3518  (covariate-adjusted)</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co">#&gt; Intercept  3.0267 -3.6919</span></span>
+<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9767  0.9482</span></span>
+<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb15-25"><a href="#cb15-25" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   3.2034    2.2929  1.3971 0.1624     </span></span>
+<span id="cb15-26"><a href="#cb15-26" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.0761    1.9088 -0.5638 0.5729     </span></span>
+<span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.8431    2.9955 -1.2830 0.1995     </span></span>
+<span id="cb15-28"><a href="#cb15-28" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.9554    0.6034  1.5832 0.1134     </span></span>
+<span id="cb15-29"><a href="#cb15-29" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb15-30"><a href="#cb15-30" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="choosing-the-reference-class" class="section level2">
+<h2>Choosing the reference class</h2>
+<p>By default, class 1 (<code>&quot;C1&quot;</code>) is the reference category for
+the multinomial logit parameterization. The <code>rebase</code> argument
+changes this. Estimates are reparameterized consistently:
+log-likelihoods are invariant, and the coefficients satisfy the
+transitivity relation <span class="math inline">\(\log(\pi_t / \pi_j) =
+\log(\pi_t / \pi_1) - \log(\pi_j / \pi_1)\)</span>.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Default: C1 as reference</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.simple)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0650</span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1299</span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7143</span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8693  (covariate-adjusted)</span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.0411    0.3214  6.3504 &lt; 0.001 ***</span></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.8821    0.1394 -6.3257 &lt; 0.001 ***</span></span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.4836    0.5876 -5.9281 &lt; 0.001 ***</span></span>
+<span id="cb16-21"><a href="#cb16-21" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.8985    0.1426  6.3008 &lt; 0.001 ***</span></span>
+<span id="cb16-22"><a href="#cb16-22" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb16-23"><a href="#cb16-23" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>d.three_step.simpleC2 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>  <span class="at">use.simple.cov =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>  <span class="at">rebase =</span> <span class="st">&quot;C2&quot;</span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>)</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.simpleC2)</span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0650</span></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1299</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7143</span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8693  (covariate-adjusted)</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="co">#&gt;                C1      C3</span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a><span class="co">#&gt; Intercept -2.1941 -5.6433</span></span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="co">#&gt; Zp         0.9413  1.8377</span></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb17-25"><a href="#cb17-25" tabindex="-1"></a><span class="co">#&gt; Intercept:C1  -2.0411    0.3214 -6.3504 &lt; 0.001 ***</span></span>
+<span id="cb17-26"><a href="#cb17-26" tabindex="-1"></a><span class="co">#&gt; Zp:C1          0.8821    0.1394  6.3257 &lt; 0.001 ***</span></span>
+<span id="cb17-27"><a href="#cb17-27" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -5.5246    0.6823 -8.0976 &lt; 0.001 ***</span></span>
+<span id="cb17-28"><a href="#cb17-28" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.7806    0.2078  8.5696 &lt; 0.001 ***</span></span>
+<span id="cb17-29"><a href="#cb17-29" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb17-30"><a href="#cb17-30" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>d.three_step.simpleC3 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>  <span class="at">use.simple.cov =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>  <span class="at">rebase =</span> <span class="st">&quot;C3&quot;</span></span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a>)</span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.simpleC3)</span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb18-12"><a href="#cb18-12" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb18-13"><a href="#cb18-13" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0650</span></span>
+<span id="cb18-14"><a href="#cb18-14" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1299</span></span>
+<span id="cb18-15"><a href="#cb18-15" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7143</span></span>
+<span id="cb18-16"><a href="#cb18-16" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8693  (covariate-adjusted)</span></span>
+<span id="cb18-17"><a href="#cb18-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb18-18"><a href="#cb18-18" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb18-19"><a href="#cb18-19" tabindex="-1"></a><span class="co">#&gt;                C1      C2</span></span>
+<span id="cb18-20"><a href="#cb18-20" tabindex="-1"></a><span class="co">#&gt; Intercept  3.4492  5.6433</span></span>
+<span id="cb18-21"><a href="#cb18-21" tabindex="-1"></a><span class="co">#&gt; Zp        -0.8964 -1.8377</span></span>
+<span id="cb18-22"><a href="#cb18-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb18-23"><a href="#cb18-23" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb18-24"><a href="#cb18-24" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb18-25"><a href="#cb18-25" tabindex="-1"></a><span class="co">#&gt; Intercept:C1   3.4836    0.5876  5.9281 &lt; 0.001 ***</span></span>
+<span id="cb18-26"><a href="#cb18-26" tabindex="-1"></a><span class="co">#&gt; Zp:C1         -0.8985    0.1426 -6.3008 &lt; 0.001 ***</span></span>
+<span id="cb18-27"><a href="#cb18-27" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   5.5246    0.6823  8.0976 &lt; 0.001 ***</span></span>
+<span id="cb18-28"><a href="#cb18-28" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.7806    0.2078 -8.5696 &lt; 0.001 ***</span></span>
+<span id="cb18-29"><a href="#cb18-29" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb18-30"><a href="#cb18-30" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<hr />
+</div>
+<div id="passing-a-pre-fitted-measurement-model" class="section level2">
+<h2>Passing a pre-fitted measurement model</h2>
+<p>The <code>step1</code> argument accepts any previously fitted
+<code>tseLCA</code> object or the raw output of
+<code>lca_step1()</code>. This is useful when you want to:</p>
+<ul>
+<li>Reuse an expensive measurement model across multiple structural
+models.</li>
+<li>Estimate the measurement model on a large reference sample and apply
+it to a smaller analysis sample.</li>
+<li>Inject custom two-step starting values computed via
+<code>fitZ_from_fit0()</code>.</li>
+</ul>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co"># Reuse the measurement model estimated above</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>d.three_step.prop2 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>  <span class="at">step1 =</span> d.measurement<span class="sc">$</span>measurement_model</span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>)</span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a><span class="fu">summary</span>(d.three_step.prop2)</span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb19-14"><a href="#cb19-14" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1339.0617</span></span>
+<span id="cb19-15"><a href="#cb19-15" tabindex="-1"></a><span class="co">#&gt; AIC            : 2758.1234</span></span>
+<span id="cb19-16"><a href="#cb19-16" tabindex="-1"></a><span class="co">#&gt; BIC            : 2926.7078</span></span>
+<span id="cb19-17"><a href="#cb19-17" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8680  (covariate-adjusted)</span></span>
+<span id="cb19-18"><a href="#cb19-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb19-19"><a href="#cb19-19" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb19-20"><a href="#cb19-20" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb19-21"><a href="#cb19-21" tabindex="-1"></a><span class="co">#&gt; Intercept  2.1934 -3.4524</span></span>
+<span id="cb19-22"><a href="#cb19-22" tabindex="-1"></a><span class="co">#&gt; Zp        -0.9411  0.8972</span></span>
+<span id="cb19-23"><a href="#cb19-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb19-24"><a href="#cb19-24" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb19-25"><a href="#cb19-25" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb19-26"><a href="#cb19-26" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.1096    0.3287  6.4183 &lt; 0.001 ***</span></span>
+<span id="cb19-27"><a href="#cb19-27" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -0.9121    0.1460 -6.2456 &lt; 0.001 ***</span></span>
+<span id="cb19-28"><a href="#cb19-28" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.6508    0.6430 -5.6777 &lt; 0.001 ***</span></span>
+<span id="cb19-29"><a href="#cb19-29" tabindex="-1"></a><span class="co">#&gt; Zp:C3          0.9367    0.1547  6.0563 &lt; 0.001 ***</span></span>
+<span id="cb19-30"><a href="#cb19-30" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb19-31"><a href="#cb19-31" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co"># Measurement model from a larger low-separation sample</span></span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>d.low2000 <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(</span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">2000</span>,</span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a>  <span class="at">separation =</span> <span class="st">&quot;low&quot;</span>,</span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a>  <span class="at">scenario =</span> <span class="st">&quot;covariate&quot;</span>,</span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2</span></span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>)</span>
+<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a>d.low.measurement2000 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a>  <span class="at">data =</span> d.low2000,</span>
+<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span></span>
+<span id="cb20-12"><a href="#cb20-12" tabindex="-1"></a>)</span>
+<span id="cb20-13"><a href="#cb20-13" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" tabindex="-1"></a><span class="co"># Apply to the smaller sample; get.twostep.vcov returns multilevLCA&#39;s</span></span>
+<span id="cb20-15"><a href="#cb20-15" tabindex="-1"></a><span class="co"># bias-corrected vcov for the two-step estimates</span></span>
+<span id="cb20-16"><a href="#cb20-16" tabindex="-1"></a>d.low.three_step.prop2 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb20-17"><a href="#cb20-17" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb20-18"><a href="#cb20-18" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb20-19"><a href="#cb20-19" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb20-20"><a href="#cb20-20" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb20-21"><a href="#cb20-21" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb20-22"><a href="#cb20-22" tabindex="-1"></a>  <span class="at">step1 =</span> d.low.measurement2000<span class="sc">$</span>measurement_model,</span>
+<span id="cb20-23"><a href="#cb20-23" tabindex="-1"></a>  <span class="at">get.twostep.vcov =</span> <span class="cn">TRUE</span></span>
+<span id="cb20-24"><a href="#cb20-24" tabindex="-1"></a>)</span>
+<span id="cb20-25"><a href="#cb20-25" tabindex="-1"></a><span class="fu">summary</span>(d.low.three_step.prop2)</span>
+<span id="cb20-26"><a href="#cb20-26" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb20-27"><a href="#cb20-27" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb20-28"><a href="#cb20-28" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb20-29"><a href="#cb20-29" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1983.8234</span></span>
+<span id="cb20-30"><a href="#cb20-30" tabindex="-1"></a><span class="co">#&gt; AIC            : 4047.6468</span></span>
+<span id="cb20-31"><a href="#cb20-31" tabindex="-1"></a><span class="co">#&gt; BIC            : 4216.2311</span></span>
+<span id="cb20-32"><a href="#cb20-32" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.3770  (covariate-adjusted)</span></span>
+<span id="cb20-33"><a href="#cb20-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb20-34"><a href="#cb20-34" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb20-35"><a href="#cb20-35" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb20-36"><a href="#cb20-36" tabindex="-1"></a><span class="co">#&gt; Intercept  2.5851 -4.2908</span></span>
+<span id="cb20-37"><a href="#cb20-37" tabindex="-1"></a><span class="co">#&gt; Zp        -1.3556  1.0806</span></span>
+<span id="cb20-38"><a href="#cb20-38" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb20-39"><a href="#cb20-39" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb20-40"><a href="#cb20-40" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb20-41"><a href="#cb20-41" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.7051    1.1848  2.2831 0.0224  *  </span></span>
+<span id="cb20-42"><a href="#cb20-42" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.3769    0.9785 -1.4072 0.1594     </span></span>
+<span id="cb20-43"><a href="#cb20-43" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.9488    2.0927 -1.8870 0.0592  .  </span></span>
+<span id="cb20-44"><a href="#cb20-44" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.0303    0.4742  2.1730 0.0298  *  </span></span>
+<span id="cb20-45"><a href="#cb20-45" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb20-46"><a href="#cb20-46" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<p>You can also compute two-step starting values separately and inject
+them before calling <code>three_step()</code>.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>d.low.fitZ2 <span class="ot">&lt;-</span> <span class="fu">fitZ_from_fit0</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>  <span class="at">fit0 =</span> d.low.measurement2000<span class="sc">$</span>measurement_model<span class="sc">$</span>fit0,</span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span></span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>)</span>
+<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a>d.low.measurement2000<span class="sc">$</span>measurement_model<span class="sc">$</span>fitZ <span class="ot">&lt;-</span> d.low.fitZ2</span>
+<span id="cb21-8"><a href="#cb21-8" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" tabindex="-1"></a>d.low.three_step.prop3 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb21-10"><a href="#cb21-10" tabindex="-1"></a>  <span class="at">data =</span> d.low,</span>
+<span id="cb21-11"><a href="#cb21-11" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb21-12"><a href="#cb21-12" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb21-13"><a href="#cb21-13" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb21-14"><a href="#cb21-14" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb21-15"><a href="#cb21-15" tabindex="-1"></a>  <span class="at">step1 =</span> d.low.measurement2000<span class="sc">$</span>measurement_model</span>
+<span id="cb21-16"><a href="#cb21-16" tabindex="-1"></a>)</span>
+<span id="cb21-17"><a href="#cb21-17" tabindex="-1"></a><span class="fu">summary</span>(d.low.three_step.prop3)</span>
+<span id="cb21-18"><a href="#cb21-18" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb21-19"><a href="#cb21-19" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb21-20"><a href="#cb21-20" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb21-21"><a href="#cb21-21" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1983.8234</span></span>
+<span id="cb21-22"><a href="#cb21-22" tabindex="-1"></a><span class="co">#&gt; AIC            : 4047.6468</span></span>
+<span id="cb21-23"><a href="#cb21-23" tabindex="-1"></a><span class="co">#&gt; BIC            : 4216.2311</span></span>
+<span id="cb21-24"><a href="#cb21-24" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.3770  (covariate-adjusted)</span></span>
+<span id="cb21-25"><a href="#cb21-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb21-26"><a href="#cb21-26" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb21-27"><a href="#cb21-27" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb21-28"><a href="#cb21-28" tabindex="-1"></a><span class="co">#&gt; Intercept  2.5851 -4.2908</span></span>
+<span id="cb21-29"><a href="#cb21-29" tabindex="-1"></a><span class="co">#&gt; Zp        -1.3556  1.0806</span></span>
+<span id="cb21-30"><a href="#cb21-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb21-31"><a href="#cb21-31" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb21-32"><a href="#cb21-32" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb21-33"><a href="#cb21-33" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.7051    1.1848  2.2831 0.0224  *  </span></span>
+<span id="cb21-34"><a href="#cb21-34" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.3769    0.9785 -1.4072 0.1594     </span></span>
+<span id="cb21-35"><a href="#cb21-35" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -3.9488    2.0927 -1.8870 0.0592  .  </span></span>
+<span id="cb21-36"><a href="#cb21-36" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.0303    0.4742  2.1730 0.0298  *  </span></span>
+<span id="cb21-37"><a href="#cb21-37" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb21-38"><a href="#cb21-38" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<hr />
+</div>
+<div id="missing-data" class="section level2">
+<h2>Missing data</h2>
+<p><code>tseLCA</code> uses a two-pass row-filtering strategy that
+matches <code>multilevLCA</code>’s approach for the measurement model
+while allowing more observations into Steps 1 and 2 than Step 3.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>d.new <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(<span class="dv">500</span>, <span class="at">separation =</span> <span class="st">&quot;high&quot;</span>, <span class="at">seed =</span> <span class="dv">3</span>)</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>sparsity <span class="ot">&lt;-</span> <span class="fl">0.1</span></span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>missing <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span></span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>  <span class="fu">matrix</span>(</span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>    <span class="fu">rbinom</span>(<span class="fu">prod</span>(<span class="fu">dim</span>(d.new)), <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> sparsity),</span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>    <span class="at">nrow =</span> <span class="fu">nrow</span>(d.new),</span>
+<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>    <span class="at">ncol =</span> <span class="fu">ncol</span>(d.new)</span>
+<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  )</span>
+<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>missing[missing <span class="sc">==</span> <span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="cn">NA_real_</span></span>
+<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>d.sparse <span class="ot">&lt;-</span> d.new <span class="sc">*</span> missing</span>
+<span id="cb22-12"><a href="#cb22-12" tabindex="-1"></a><span class="fu">head</span>(d.sparse)</span>
+<span id="cb22-13"><a href="#cb22-13" tabindex="-1"></a><span class="co">#&gt;   Y1 Y2 Y3 Y4 Y5 Y6  X Zp</span></span>
+<span id="cb22-14"><a href="#cb22-14" tabindex="-1"></a><span class="co">#&gt; 1  0  0 NA  0  1  0  3  5</span></span>
+<span id="cb22-15"><a href="#cb22-15" tabindex="-1"></a><span class="co">#&gt; 2  1  1 NA  0  0  0  2  2</span></span>
+<span id="cb22-16"><a href="#cb22-16" tabindex="-1"></a><span class="co">#&gt; 3  1  1  1  1  1  0  1  4</span></span>
+<span id="cb22-17"><a href="#cb22-17" tabindex="-1"></a><span class="co">#&gt; 4  0  0  0  0  0  0  3  4</span></span>
+<span id="cb22-18"><a href="#cb22-18" tabindex="-1"></a><span class="co">#&gt; 5  1  1  1  0  0  0 NA  2</span></span>
+<span id="cb22-19"><a href="#cb22-19" tabindex="-1"></a><span class="co">#&gt; 6  1  1 NA  0  0  0  2  3</span></span></code></pre></div>
+<p>With <code>incomplete = FALSE</code> (the default), any row with a
+missing indicator is dropped before the measurement model is
+estimated.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a>d.sparse.measurement <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a>  <span class="at">data =</span> d.sparse,</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a>)</span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a><span class="co">#&gt; 242 row(s) dropped from measurement/classification steps (missing Y).</span></span>
+<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a><span class="co"># Rows dropped = number of rows with at least one missing Y</span></span>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a><span class="fu">sum</span>(<span class="fu">apply</span>(d.sparse[, <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>)], <span class="dv">1</span>, \(x) <span class="fu">any</span>(<span class="fu">is.na</span>(x))))</span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a><span class="co">#&gt; [1] 242</span></span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a><span class="fu">summary</span>(d.sparse.measurement)</span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Measurement Model --------------------------------</span></span>
+<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -742.0656</span></span>
+<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a><span class="co">#&gt; AIC            : 1524.1311</span></span>
+<span id="cb23-17"><a href="#cb23-17" tabindex="-1"></a><span class="co">#&gt; BIC            : 1595.1903</span></span>
+<span id="cb23-18"><a href="#cb23-18" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.9027</span></span>
+<span id="cb23-19"><a href="#cb23-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb23-20"><a href="#cb23-20" tabindex="-1"></a><span class="co">#&gt; Class prevalences:</span></span>
+<span id="cb23-21"><a href="#cb23-21" tabindex="-1"></a><span class="co">#&gt;             </span></span>
+<span id="cb23-22"><a href="#cb23-22" tabindex="-1"></a><span class="co">#&gt; P(C1) 0.2995</span></span>
+<span id="cb23-23"><a href="#cb23-23" tabindex="-1"></a><span class="co">#&gt; P(C2) 0.3967</span></span>
+<span id="cb23-24"><a href="#cb23-24" tabindex="-1"></a><span class="co">#&gt; P(C3) 0.3037</span></span>
+<span id="cb23-25"><a href="#cb23-25" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;names&quot;)</span></span>
+<span id="cb23-26"><a href="#cb23-26" tabindex="-1"></a><span class="co">#&gt; [1] &quot;C1&quot; &quot;C2&quot; &quot;C3&quot;</span></span>
+<span id="cb23-27"><a href="#cb23-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb23-28"><a href="#cb23-28" tabindex="-1"></a><span class="co">#&gt; Item-response probabilities (P(Y=1|class)):</span></span>
+<span id="cb23-29"><a href="#cb23-29" tabindex="-1"></a><span class="co">#&gt;             C1     C2     C3</span></span>
+<span id="cb23-30"><a href="#cb23-30" tabindex="-1"></a><span class="co">#&gt; P(Y1|C) 0.8241 0.8869 0.0834</span></span>
+<span id="cb23-31"><a href="#cb23-31" tabindex="-1"></a><span class="co">#&gt; P(Y2|C) 0.8600 0.9104 0.0811</span></span>
+<span id="cb23-32"><a href="#cb23-32" tabindex="-1"></a><span class="co">#&gt; P(Y3|C) 0.9110 0.9344 0.0633</span></span>
+<span id="cb23-33"><a href="#cb23-33" tabindex="-1"></a><span class="co">#&gt; P(Y4|C) 0.9035 0.0486 0.1302</span></span>
+<span id="cb23-34"><a href="#cb23-34" tabindex="-1"></a><span class="co">#&gt; P(Y5|C) 0.9349 0.1517 0.0795</span></span>
+<span id="cb23-35"><a href="#cb23-35" tabindex="-1"></a><span class="co">#&gt; P(Y6|C) 0.9331 0.1555 0.0762</span></span></code></pre></div>
+<p>With <code>incomplete = TRUE</code>, only fully-missing rows are
+dropped; partially observed rows contribute to the measurement model via
+FIML.</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a>d.sparse.measurement2 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a>  <span class="at">data =</span> d.sparse,</span>
+<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb24-7"><a href="#cb24-7" tabindex="-1"></a>)</span>
+<span id="cb24-8"><a href="#cb24-8" tabindex="-1"></a><span class="fu">summary</span>(d.sparse.measurement2)</span>
+<span id="cb24-9"><a href="#cb24-9" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Measurement Model --------------------------------</span></span>
+<span id="cb24-10"><a href="#cb24-10" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb24-11"><a href="#cb24-11" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1342.8026</span></span>
+<span id="cb24-12"><a href="#cb24-12" tabindex="-1"></a><span class="co">#&gt; AIC            : 2725.6052</span></span>
+<span id="cb24-13"><a href="#cb24-13" tabindex="-1"></a><span class="co">#&gt; BIC            : 2809.8974</span></span>
+<span id="cb24-14"><a href="#cb24-14" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8425</span></span>
+<span id="cb24-15"><a href="#cb24-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb24-16"><a href="#cb24-16" tabindex="-1"></a><span class="co">#&gt; Class prevalences:</span></span>
+<span id="cb24-17"><a href="#cb24-17" tabindex="-1"></a><span class="co">#&gt;             </span></span>
+<span id="cb24-18"><a href="#cb24-18" tabindex="-1"></a><span class="co">#&gt; P(C1) 0.3049</span></span>
+<span id="cb24-19"><a href="#cb24-19" tabindex="-1"></a><span class="co">#&gt; P(C2) 0.3652</span></span>
+<span id="cb24-20"><a href="#cb24-20" tabindex="-1"></a><span class="co">#&gt; P(C3) 0.3299</span></span>
+<span id="cb24-21"><a href="#cb24-21" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;names&quot;)</span></span>
+<span id="cb24-22"><a href="#cb24-22" tabindex="-1"></a><span class="co">#&gt; [1] &quot;C1&quot; &quot;C2&quot; &quot;C3&quot;</span></span>
+<span id="cb24-23"><a href="#cb24-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb24-24"><a href="#cb24-24" tabindex="-1"></a><span class="co">#&gt; Item-response probabilities (P(Y=1|class)):</span></span>
+<span id="cb24-25"><a href="#cb24-25" tabindex="-1"></a><span class="co">#&gt;             C1     C2     C3</span></span>
+<span id="cb24-26"><a href="#cb24-26" tabindex="-1"></a><span class="co">#&gt; P(Y1|C) 0.8797 0.8916 0.0925</span></span>
+<span id="cb24-27"><a href="#cb24-27" tabindex="-1"></a><span class="co">#&gt; P(Y2|C) 0.8888 0.8858 0.0677</span></span>
+<span id="cb24-28"><a href="#cb24-28" tabindex="-1"></a><span class="co">#&gt; P(Y3|C) 0.9337 0.8859 0.1453</span></span>
+<span id="cb24-29"><a href="#cb24-29" tabindex="-1"></a><span class="co">#&gt; P(Y4|C) 0.9079 0.0819 0.1339</span></span>
+<span id="cb24-30"><a href="#cb24-30" tabindex="-1"></a><span class="co">#&gt; P(Y5|C) 0.9536 0.1359 0.1056</span></span>
+<span id="cb24-31"><a href="#cb24-31" tabindex="-1"></a><span class="co">#&gt; P(Y6|C) 0.9583 0.1590 0.1176</span></span></code></pre></div>
+<p>Regardless of <code>incomplete</code>, Step 3 drops any row with a
+missing covariate. The rows used in Step 3 are a subset of those used in
+Steps 1 and 2.</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a>d.sparse.three_step <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a>  <span class="at">data =</span> d.sparse,</span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb25-8"><a href="#cb25-8" tabindex="-1"></a>)</span>
+<span id="cb25-9"><a href="#cb25-9" tabindex="-1"></a><span class="co">#&gt; 43 row(s) excluded from covariate step (missing Z).</span></span>
+<span id="cb25-10"><a href="#cb25-10" tabindex="-1"></a><span class="co">#&gt; fitZ EM converged in 9 iterations.</span></span>
+<span id="cb25-11"><a href="#cb25-11" tabindex="-1"></a><span class="co">#&gt; 43 row(s) excluded from covariate step (missing Z).</span></span>
+<span id="cb25-12"><a href="#cb25-12" tabindex="-1"></a><span class="co">#&gt; EM converged in 8 iterations.</span></span>
+<span id="cb25-13"><a href="#cb25-13" tabindex="-1"></a><span class="co"># Additional rows dropped from Step 3 due to missing Zp</span></span>
+<span id="cb25-14"><a href="#cb25-14" tabindex="-1"></a><span class="fu">sum</span>(<span class="fu">is.na</span>(d.sparse<span class="sc">$</span>Zp))</span>
+<span id="cb25-15"><a href="#cb25-15" tabindex="-1"></a><span class="co">#&gt; [1] 43</span></span>
+<span id="cb25-16"><a href="#cb25-16" tabindex="-1"></a><span class="fu">summary</span>(d.sparse.three_step)</span>
+<span id="cb25-17"><a href="#cb25-17" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb25-18"><a href="#cb25-18" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb25-19"><a href="#cb25-19" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb25-20"><a href="#cb25-20" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1088.3344</span></span>
+<span id="cb25-21"><a href="#cb25-21" tabindex="-1"></a><span class="co">#&gt; AIC            : 2256.6688</span></span>
+<span id="cb25-22"><a href="#cb25-22" tabindex="-1"></a><span class="co">#&gt; BIC            : 2421.6562</span></span>
+<span id="cb25-23"><a href="#cb25-23" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8672  (covariate-adjusted)</span></span>
+<span id="cb25-24"><a href="#cb25-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb25-25"><a href="#cb25-25" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb25-26"><a href="#cb25-26" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb25-27"><a href="#cb25-27" tabindex="-1"></a><span class="co">#&gt; Intercept  2.5023 -4.6555</span></span>
+<span id="cb25-28"><a href="#cb25-28" tabindex="-1"></a><span class="co">#&gt; Zp        -1.0494  1.2929</span></span>
+<span id="cb25-29"><a href="#cb25-29" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb25-30"><a href="#cb25-30" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb25-31"><a href="#cb25-31" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb25-32"><a href="#cb25-32" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.4803    0.3807  6.5149 &lt; 0.001 ***</span></span>
+<span id="cb25-33"><a href="#cb25-33" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.0136    0.1667 -6.0789 &lt; 0.001 ***</span></span>
+<span id="cb25-34"><a href="#cb25-34" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -4.7754    0.7267 -6.5716 &lt; 0.001 ***</span></span>
+<span id="cb25-35"><a href="#cb25-35" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.3164    0.1796  7.3290 &lt; 0.001 ***</span></span>
+<span id="cb25-36"><a href="#cb25-36" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb25-37"><a href="#cb25-37" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<p>A FIML measurement model can be passed in and then reused for the
+covariate step on the same sparse data.</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>d.sparse.three_step2 <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>  <span class="at">data =</span> d.sparse,</span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a>  <span class="at">step1 =</span> d.sparse.measurement2<span class="sc">$</span>measurement_model,</span>
+<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a>)</span>
+<span id="cb26-10"><a href="#cb26-10" tabindex="-1"></a><span class="co">#&gt; 43 row(s) excluded from covariate step (missing Z).</span></span>
+<span id="cb26-11"><a href="#cb26-11" tabindex="-1"></a><span class="co">#&gt; fitZ EM converged in 9 iterations.</span></span>
+<span id="cb26-12"><a href="#cb26-12" tabindex="-1"></a><span class="co">#&gt; 43 row(s) excluded from covariate step (missing Z).</span></span>
+<span id="cb26-13"><a href="#cb26-13" tabindex="-1"></a><span class="co">#&gt; EM converged in 8 iterations.</span></span>
+<span id="cb26-14"><a href="#cb26-14" tabindex="-1"></a><span class="fu">summary</span>(d.sparse.three_step2)</span>
+<span id="cb26-15"><a href="#cb26-15" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb26-16"><a href="#cb26-16" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb26-17"><a href="#cb26-17" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb26-18"><a href="#cb26-18" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1088.3344</span></span>
+<span id="cb26-19"><a href="#cb26-19" tabindex="-1"></a><span class="co">#&gt; AIC            : 2256.6688</span></span>
+<span id="cb26-20"><a href="#cb26-20" tabindex="-1"></a><span class="co">#&gt; BIC            : 2421.6562</span></span>
+<span id="cb26-21"><a href="#cb26-21" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.8672  (covariate-adjusted)</span></span>
+<span id="cb26-22"><a href="#cb26-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb26-23"><a href="#cb26-23" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb26-24"><a href="#cb26-24" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb26-25"><a href="#cb26-25" tabindex="-1"></a><span class="co">#&gt; Intercept  2.5023 -4.6555</span></span>
+<span id="cb26-26"><a href="#cb26-26" tabindex="-1"></a><span class="co">#&gt; Zp        -1.0494  1.2929</span></span>
+<span id="cb26-27"><a href="#cb26-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb26-28"><a href="#cb26-28" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb26-29"><a href="#cb26-29" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb26-30"><a href="#cb26-30" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.4803    0.3807  6.5149 &lt; 0.001 ***</span></span>
+<span id="cb26-31"><a href="#cb26-31" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.0136    0.1667 -6.0789 &lt; 0.001 ***</span></span>
+<span id="cb26-32"><a href="#cb26-32" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -4.7754    0.7267 -6.5716 &lt; 0.001 ***</span></span>
+<span id="cb26-33"><a href="#cb26-33" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.3164    0.1796  7.3290 &lt; 0.001 ***</span></span>
+<span id="cb26-34"><a href="#cb26-34" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb26-35"><a href="#cb26-35" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<hr />
+</div>
+<div id="polytomous-items" class="section level2">
+<h2>Polytomous items</h2>
+<p><code>tseLCA</code> supports polytomous indicators, following
+<code>multilevLCA</code>’s convention that item categories are coded as
+consecutive integers starting at 0.</p>
+<p>Here we reproduce the example from the <code>poLCA</code>
+package.</p>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="fu">data</span>(election, <span class="at">package =</span> <span class="st">&quot;poLCA&quot;</span>)</span>
+<span id="cb27-2"><a href="#cb27-2" tabindex="-1"></a>elec <span class="ot">&lt;-</span> election</span>
+<span id="cb27-3"><a href="#cb27-3" tabindex="-1"></a>elec.items <span class="ot">&lt;-</span> <span class="fu">colnames</span>(election)[<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>]</span>
+<span id="cb27-4"><a href="#cb27-4" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" tabindex="-1"></a><span class="co"># Recode to 0-based integers as required by multilevLCA</span></span>
+<span id="cb27-6"><a href="#cb27-6" tabindex="-1"></a>elec[, elec.items] <span class="ot">&lt;-</span> <span class="fu">lapply</span>(elec[, elec.items], \(x) <span class="fu">as.integer</span>(x) <span class="sc">-</span> <span class="dv">1</span><span class="dt">L</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a>elec.measurement <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a>  <span class="at">data =</span> elec,</span>
+<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a>  <span class="at">Y.names =</span> elec.items,</span>
+<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a>  <span class="co">#The poLCA example drops any row with a missing cell</span></span>
+<span id="cb28-6"><a href="#cb28-6" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">FALSE</span></span>
+<span id="cb28-7"><a href="#cb28-7" tabindex="-1"></a>)</span>
+<span id="cb28-8"><a href="#cb28-8" tabindex="-1"></a></span>
+<span id="cb28-9"><a href="#cb28-9" tabindex="-1"></a>elec.three_step <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb28-10"><a href="#cb28-10" tabindex="-1"></a>  <span class="at">data =</span> elec,</span>
+<span id="cb28-11"><a href="#cb28-11" tabindex="-1"></a>  <span class="at">Y.names =</span> elec.items,</span>
+<span id="cb28-12"><a href="#cb28-12" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb28-13"><a href="#cb28-13" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="fu">c</span>(<span class="st">&quot;PARTY&quot;</span>),</span>
+<span id="cb28-14"><a href="#cb28-14" tabindex="-1"></a>  <span class="at">step1 =</span> elec.measurement<span class="sc">$</span>measurement_model,</span>
+<span id="cb28-15"><a href="#cb28-15" tabindex="-1"></a>  <span class="at">incomplete =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb28-16"><a href="#cb28-16" tabindex="-1"></a>  <span class="co">#With the neutral group as the base-category</span></span>
+<span id="cb28-17"><a href="#cb28-17" tabindex="-1"></a>  <span class="at">rebase =</span> <span class="st">&quot;C3&quot;</span></span>
+<span id="cb28-18"><a href="#cb28-18" tabindex="-1"></a>)</span>
+<span id="cb28-19"><a href="#cb28-19" tabindex="-1"></a><span class="co">#&gt; Warning: lca_indiv_varmat: Infomat is singular even after removing boundary</span></span>
+<span id="cb28-20"><a href="#cb28-20" tabindex="-1"></a><span class="co">#&gt; parameters; returning NA matrix. Check for near-empty classes.</span></span>
+<span id="cb28-21"><a href="#cb28-21" tabindex="-1"></a><span class="fu">summary</span>(elec.three_step)</span>
+<span id="cb28-22"><a href="#cb28-22" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Covariate Model -----------------------</span></span>
+<span id="cb28-23"><a href="#cb28-23" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb28-24"><a href="#cb28-24" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb28-25"><a href="#cb28-25" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -16278.0242</span></span>
+<span id="cb28-26"><a href="#cb28-26" tabindex="-1"></a><span class="co">#&gt; AIC            : 32852.0485</span></span>
+<span id="cb28-27"><a href="#cb28-27" tabindex="-1"></a><span class="co">#&gt; BIC            : 33617.2262</span></span>
+<span id="cb28-28"><a href="#cb28-28" tabindex="-1"></a><span class="co">#&gt; Entropy R²     : 0.7956  (covariate-adjusted)</span></span>
+<span id="cb28-29"><a href="#cb28-29" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb28-30"><a href="#cb28-30" tabindex="-1"></a><span class="co">#&gt; Two-step (starting) estimates:</span></span>
+<span id="cb28-31"><a href="#cb28-31" tabindex="-1"></a><span class="co">#&gt;                C1      C2</span></span>
+<span id="cb28-32"><a href="#cb28-32" tabindex="-1"></a><span class="co">#&gt; Intercept -2.5781  1.8687</span></span>
+<span id="cb28-33"><a href="#cb28-33" tabindex="-1"></a><span class="co">#&gt; PARTY      0.4289 -0.6983</span></span>
+<span id="cb28-34"><a href="#cb28-34" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb28-35"><a href="#cb28-35" tabindex="-1"></a><span class="co">#&gt; Three-step estimates:</span></span>
+<span id="cb28-36"><a href="#cb28-36" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value p.value</span></span>
+<span id="cb28-37"><a href="#cb28-37" tabindex="-1"></a><span class="co">#&gt; Intercept:C1  -2.4701        NA      NA      NA</span></span>
+<span id="cb28-38"><a href="#cb28-38" tabindex="-1"></a><span class="co">#&gt; PARTY:C1       0.4077        NA      NA      NA</span></span>
+<span id="cb28-39"><a href="#cb28-39" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   1.7324        NA      NA      NA</span></span>
+<span id="cb28-40"><a href="#cb28-40" tabindex="-1"></a><span class="co">#&gt; PARTY:C2      -0.6727        NA      NA      NA</span></span>
+<span id="cb28-41"><a href="#cb28-41" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb28-42"><a href="#cb28-42" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" tabindex="-1"></a></span>
+<span id="cb29-2"><a href="#cb29-2" tabindex="-1"></a>party.x <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">1</span>, <span class="at">to =</span> <span class="dv">7</span>, <span class="at">length.out =</span> <span class="dv">101</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" tabindex="-1"></a>pidmat <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span>, party.x)</span>
+<span id="cb29-4"><a href="#cb29-4" tabindex="-1"></a>exb <span class="ot">&lt;-</span> <span class="fu">exp</span>(pidmat <span class="sc">%*%</span> <span class="fu">coef</span>(elec.three_step))</span>
+<span id="cb29-5"><a href="#cb29-5" tabindex="-1"></a></span>
+<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a><span class="fu">matplot</span>(</span>
+<span id="cb29-7"><a href="#cb29-7" tabindex="-1"></a>  party.x,</span>
+<span id="cb29-8"><a href="#cb29-8" tabindex="-1"></a>  (<span class="fu">cbind</span>(<span class="dv">1</span>, exb)) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">rowSums</span>(exb)),</span>
+<span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a>  <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb29-10"><a href="#cb29-10" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">&quot;l&quot;</span>,</span>
+<span id="cb29-11"><a href="#cb29-11" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="dv">3</span>,</span>
+<span id="cb29-12"><a href="#cb29-12" tabindex="-1"></a>  <span class="at">col =</span> <span class="dv">1</span>,</span>
+<span id="cb29-13"><a href="#cb29-13" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">&quot;Party ID: strong Democratic (1) to strong Republican (7)&quot;</span>,</span>
+<span id="cb29-14"><a href="#cb29-14" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">&quot;Probability of latent class membership&quot;</span>,</span>
+<span id="cb29-15"><a href="#cb29-15" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">&quot;Party ID as a predictor of candidate affinity class&quot;</span>,</span>
+<span id="cb29-16"><a href="#cb29-16" tabindex="-1"></a>)</span>
+<span id="cb29-17"><a href="#cb29-17" tabindex="-1"></a><span class="fu">text</span>(<span class="fl">3.9</span>, <span class="fl">0.60</span>, <span class="st">&quot;Other&quot;</span>)</span>
+<span id="cb29-18"><a href="#cb29-18" tabindex="-1"></a><span class="fu">text</span>(<span class="fl">6.2</span>, <span class="fl">0.6</span>, <span class="st">&quot;Bush affinity&quot;</span>)</span>
+<span id="cb29-19"><a href="#cb29-19" tabindex="-1"></a><span class="fu">text</span>(<span class="fl">2.0</span>, <span class="fl">0.65</span>, <span class="st">&quot;Gore affinity&quot;</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+<hr />
+</div>
+<div id="distal-outcomes" class="section level2">
+<h2>Distal outcomes</h2>
+<p>For distal outcomes (<span class="math inline">\(Z_o \leftarrow X
+\rightarrow Y\)</span>), supply <code>Zo.name</code> and a
+<code>family</code> argument. The available families are
+<code>&quot;gaussian&quot;</code> (default), <code>&quot;poisson&quot;</code>, and
+<code>&quot;binomial&quot;</code>. Both ML and BCH estimators are available.</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" tabindex="-1"></a>d.distal <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(</span>
+<span id="cb30-2"><a href="#cb30-2" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">500</span>,</span>
+<span id="cb30-3"><a href="#cb30-3" tabindex="-1"></a>  <span class="at">separation =</span> <span class="st">&quot;high&quot;</span>,</span>
+<span id="cb30-4"><a href="#cb30-4" tabindex="-1"></a>  <span class="at">scenario =</span> <span class="st">&quot;distal&quot;</span>,</span>
+<span id="cb30-5"><a href="#cb30-5" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">4</span></span>
+<span id="cb30-6"><a href="#cb30-6" tabindex="-1"></a>)</span>
+<span id="cb30-7"><a href="#cb30-7" tabindex="-1"></a><span class="co"># True class means: mu = (0, 1, -1) for C1, C2, C3</span></span></code></pre></div>
+<div class="sourceCode" id="cb31"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" tabindex="-1"></a>d.distal.measurement <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb31-2"><a href="#cb31-2" tabindex="-1"></a>  <span class="at">data =</span> d.distal,</span>
+<span id="cb31-3"><a href="#cb31-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb31-4"><a href="#cb31-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span></span>
+<span id="cb31-5"><a href="#cb31-5" tabindex="-1"></a>)</span>
+<span id="cb31-6"><a href="#cb31-6" tabindex="-1"></a></span>
+<span id="cb31-7"><a href="#cb31-7" tabindex="-1"></a><span class="co"># ML estimator</span></span>
+<span id="cb31-8"><a href="#cb31-8" tabindex="-1"></a>d.distal.three_step.ml <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb31-9"><a href="#cb31-9" tabindex="-1"></a>  <span class="at">data =</span> d.distal,</span>
+<span id="cb31-10"><a href="#cb31-10" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb31-11"><a href="#cb31-11" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb31-12"><a href="#cb31-12" tabindex="-1"></a>  <span class="at">Zo.name =</span> <span class="st">&quot;Zo&quot;</span>,</span>
+<span id="cb31-13"><a href="#cb31-13" tabindex="-1"></a>  <span class="at">step1 =</span> d.distal.measurement<span class="sc">$</span>measurement_model,</span>
+<span id="cb31-14"><a href="#cb31-14" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb31-15"><a href="#cb31-15" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">&quot;gaussian&quot;</span></span>
+<span id="cb31-16"><a href="#cb31-16" tabindex="-1"></a>)</span>
+<span id="cb31-17"><a href="#cb31-17" tabindex="-1"></a></span>
+<span id="cb31-18"><a href="#cb31-18" tabindex="-1"></a><span class="co"># BCH estimator: closed-form M-step for distal outcomes</span></span>
+<span id="cb31-19"><a href="#cb31-19" tabindex="-1"></a>d.distal.three_step.bch <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb31-20"><a href="#cb31-20" tabindex="-1"></a>  <span class="at">data =</span> d.distal,</span>
+<span id="cb31-21"><a href="#cb31-21" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb31-22"><a href="#cb31-22" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb31-23"><a href="#cb31-23" tabindex="-1"></a>  <span class="at">Zo.name =</span> <span class="st">&quot;Zo&quot;</span>,</span>
+<span id="cb31-24"><a href="#cb31-24" tabindex="-1"></a>  <span class="at">step1 =</span> d.distal.measurement<span class="sc">$</span>measurement_model,</span>
+<span id="cb31-25"><a href="#cb31-25" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb31-26"><a href="#cb31-26" tabindex="-1"></a>  <span class="at">use.bch =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb31-27"><a href="#cb31-27" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">&quot;gaussian&quot;</span></span>
+<span id="cb31-28"><a href="#cb31-28" tabindex="-1"></a>)</span>
+<span id="cb31-29"><a href="#cb31-29" tabindex="-1"></a></span>
+<span id="cb31-30"><a href="#cb31-30" tabindex="-1"></a><span class="fu">summary</span>(d.distal.three_step.ml)</span>
+<span id="cb31-31"><a href="#cb31-31" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Distal Outcome Model -------------------</span></span>
+<span id="cb31-32"><a href="#cb31-32" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb31-33"><a href="#cb31-33" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb31-34"><a href="#cb31-34" tabindex="-1"></a><span class="co">#&gt; Family         : gaussian</span></span>
+<span id="cb31-35"><a href="#cb31-35" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -2169.0110</span></span>
+<span id="cb31-36"><a href="#cb31-36" tabindex="-1"></a><span class="co">#&gt; AIC            : 4384.0220</span></span>
+<span id="cb31-37"><a href="#cb31-37" tabindex="-1"></a><span class="co">#&gt; BIC            : 4480.9580</span></span>
+<span id="cb31-38"><a href="#cb31-38" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb31-39"><a href="#cb31-39" tabindex="-1"></a><span class="co">#&gt; Distal outcome estimates by class:</span></span>
+<span id="cb31-40"><a href="#cb31-40" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error  z.value     p.value</span></span>
+<span id="cb31-41"><a href="#cb31-41" tabindex="-1"></a><span class="co">#&gt; mu_C1 (mean)  -1.0821    0.0817 -13.2495 &lt; 0.001 ***</span></span>
+<span id="cb31-42"><a href="#cb31-42" tabindex="-1"></a><span class="co">#&gt; mu_C2 (mean)   1.0172    0.0819  12.4151 &lt; 0.001 ***</span></span>
+<span id="cb31-43"><a href="#cb31-43" tabindex="-1"></a><span class="co">#&gt; mu_C3 (mean)   0.0254    0.0878   0.2887 0.7728     </span></span>
+<span id="cb31-44"><a href="#cb31-44" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb31-45"><a href="#cb31-45" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb31-46"><a href="#cb31-46" tabindex="-1"></a><span class="fu">summary</span>(d.distal.three_step.bch)</span>
+<span id="cb31-47"><a href="#cb31-47" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Distal Outcome Model -------------------</span></span>
+<span id="cb31-48"><a href="#cb31-48" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb31-49"><a href="#cb31-49" tabindex="-1"></a><span class="co">#&gt; Estimator      : BCH</span></span>
+<span id="cb31-50"><a href="#cb31-50" tabindex="-1"></a><span class="co">#&gt; Family         : gaussian</span></span>
+<span id="cb31-51"><a href="#cb31-51" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -2168.8685</span></span>
+<span id="cb31-52"><a href="#cb31-52" tabindex="-1"></a><span class="co">#&gt; AIC            : 4383.7370</span></span>
+<span id="cb31-53"><a href="#cb31-53" tabindex="-1"></a><span class="co">#&gt; BIC            : 4480.6730</span></span>
+<span id="cb31-54"><a href="#cb31-54" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb31-55"><a href="#cb31-55" tabindex="-1"></a><span class="co">#&gt; Distal outcome estimates by class:</span></span>
+<span id="cb31-56"><a href="#cb31-56" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error  z.value     p.value</span></span>
+<span id="cb31-57"><a href="#cb31-57" tabindex="-1"></a><span class="co">#&gt; mu_C1 (mean)  -1.0941    0.0867 -12.6134 &lt; 0.001 ***</span></span>
+<span id="cb31-58"><a href="#cb31-58" tabindex="-1"></a><span class="co">#&gt; mu_C2 (mean)   0.9751    0.0823  11.8534 &lt; 0.001 ***</span></span>
+<span id="cb31-59"><a href="#cb31-59" tabindex="-1"></a><span class="co">#&gt; mu_C3 (mean)   0.0578    0.0859   0.6733 0.5008     </span></span>
+<span id="cb31-60"><a href="#cb31-60" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb31-61"><a href="#cb31-61" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<hr />
+</div>
+<div id="three-step-estimation-with-both-covariates-zp-and-distal-outcomes-zo" class="section level2">
+<h2>Three-step estimation with both covariates (Zp) and distal outcomes
+(Zo)</h2>
+<p>Consistent with how most research in the social sciences construct
+the relationships between <span class="math inline">\(Z_p\)</span> and
+<span class="math inline">\(X\)</span>, and <span class="math inline">\(X\)</span> and <span class="math inline">\(Z_o\)</span>, the relationship between <span class="math inline">\(Z_p\)</span> and <span class="math inline">\(X\)</span> is estimated <strong>first</strong>,
+followed by estimation between <span class="math inline">\(X\)</span>
+and <span class="math inline">\(Z_o\)</span>, adjusting for the
+covariate-adjusted posteriors in the estimation procedures for the
+distal outcome model in step 3.</p>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" tabindex="-1"></a>d.covariate <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(</span>
+<span id="cb32-2"><a href="#cb32-2" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">500</span>,</span>
+<span id="cb32-3"><a href="#cb32-3" tabindex="-1"></a>  <span class="at">separation =</span> <span class="st">&quot;high&quot;</span>,</span>
+<span id="cb32-4"><a href="#cb32-4" tabindex="-1"></a>  <span class="at">scenario =</span> <span class="st">&quot;covariate&quot;</span>,</span>
+<span id="cb32-5"><a href="#cb32-5" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">4</span></span>
+<span id="cb32-6"><a href="#cb32-6" tabindex="-1"></a>)</span>
+<span id="cb32-7"><a href="#cb32-7" tabindex="-1"></a>d.covariate<span class="sc">$</span>Zo <span class="ot">&lt;-</span> <span class="fu">draw_Zo</span>(d.covariate<span class="sc">$</span>X, bk2018_params<span class="sc">$</span>distal_params)</span>
+<span id="cb32-8"><a href="#cb32-8" tabindex="-1"></a><span class="fu">head</span>(d.covariate)</span>
+<span id="cb32-9"><a href="#cb32-9" tabindex="-1"></a><span class="co">#&gt;   Y1 Y2 Y3 Y4 Y5 Y6 X Zp         Zo</span></span>
+<span id="cb32-10"><a href="#cb32-10" tabindex="-1"></a><span class="co">#&gt; 1  1  1  1  1  0  0 2  3 -0.1624650</span></span>
+<span id="cb32-11"><a href="#cb32-11" tabindex="-1"></a><span class="co">#&gt; 2  1  1  1  1  1  1 1  3 -1.1591833</span></span>
+<span id="cb32-12"><a href="#cb32-12" tabindex="-1"></a><span class="co">#&gt; 3  1  1  1  1  1  1 1  3 -1.2055132</span></span>
+<span id="cb32-13"><a href="#cb32-13" tabindex="-1"></a><span class="co">#&gt; 4  0  0  0  0  0  0 3  4  1.8752276</span></span>
+<span id="cb32-14"><a href="#cb32-14" tabindex="-1"></a><span class="co">#&gt; 5  1  1  1  1  1  1 1  3 -2.5582369</span></span>
+<span id="cb32-15"><a href="#cb32-15" tabindex="-1"></a><span class="co">#&gt; 6  1  1  1  1  1  1 1  5 -0.4723262</span></span>
+<span id="cb32-16"><a href="#cb32-16" tabindex="-1"></a></span>
+<span id="cb32-17"><a href="#cb32-17" tabindex="-1"></a>d.covariate.three_step <span class="ot">&lt;-</span> <span class="fu">three_step</span>(</span>
+<span id="cb32-18"><a href="#cb32-18" tabindex="-1"></a>  <span class="at">data =</span> d.covariate,</span>
+<span id="cb32-19"><a href="#cb32-19" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb32-20"><a href="#cb32-20" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb32-21"><a href="#cb32-21" tabindex="-1"></a>  <span class="at">Zp.names =</span> <span class="st">&quot;Zp&quot;</span>,</span>
+<span id="cb32-22"><a href="#cb32-22" tabindex="-1"></a>  <span class="at">Zo.name =</span> <span class="st">&quot;Zo&quot;</span>,</span>
+<span id="cb32-23"><a href="#cb32-23" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span></span>
+<span id="cb32-24"><a href="#cb32-24" tabindex="-1"></a>)</span>
+<span id="cb32-25"><a href="#cb32-25" tabindex="-1"></a><span class="fu">summary</span>(d.covariate.three_step)</span>
+<span id="cb32-26"><a href="#cb32-26" tabindex="-1"></a><span class="co">#&gt; -- tseLCA Three-step Model: Covariate + Distal Outcome -----</span></span>
+<span id="cb32-27"><a href="#cb32-27" tabindex="-1"></a><span class="co">#&gt; Latent classes : 3</span></span>
+<span id="cb32-28"><a href="#cb32-28" tabindex="-1"></a><span class="co">#&gt; Estimator      : ML</span></span>
+<span id="cb32-29"><a href="#cb32-29" tabindex="-1"></a><span class="co">#&gt; Family         : gaussian</span></span>
+<span id="cb32-30"><a href="#cb32-30" tabindex="-1"></a><span class="co">#&gt; Log-likelihood : -1315.6596</span></span>
+<span id="cb32-31"><a href="#cb32-31" tabindex="-1"></a><span class="co">#&gt; AIC            : 2711.3193</span></span>
+<span id="cb32-32"><a href="#cb32-32" tabindex="-1"></a><span class="co">#&gt; BIC            : 2879.9036</span></span>
+<span id="cb32-33"><a href="#cb32-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb32-34"><a href="#cb32-34" tabindex="-1"></a><span class="co">#&gt; Covariate -- two-step (starting) estimates:</span></span>
+<span id="cb32-35"><a href="#cb32-35" tabindex="-1"></a><span class="co">#&gt;                C2      C3</span></span>
+<span id="cb32-36"><a href="#cb32-36" tabindex="-1"></a><span class="co">#&gt; Intercept  2.4973 -4.2196</span></span>
+<span id="cb32-37"><a href="#cb32-37" tabindex="-1"></a><span class="co">#&gt; Zp        -1.0177  1.1159</span></span>
+<span id="cb32-38"><a href="#cb32-38" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb32-39"><a href="#cb32-39" tabindex="-1"></a><span class="co">#&gt; Covariate -- three-step estimates:</span></span>
+<span id="cb32-40"><a href="#cb32-40" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error z.value     p.value</span></span>
+<span id="cb32-41"><a href="#cb32-41" tabindex="-1"></a><span class="co">#&gt; Intercept:C2   2.6602    0.3998  6.6538 &lt; 0.001 ***</span></span>
+<span id="cb32-42"><a href="#cb32-42" tabindex="-1"></a><span class="co">#&gt; Zp:C2         -1.0790    0.1632 -6.6134 &lt; 0.001 ***</span></span>
+<span id="cb32-43"><a href="#cb32-43" tabindex="-1"></a><span class="co">#&gt; Intercept:C3  -4.6917    0.7070 -6.6365 &lt; 0.001 ***</span></span>
+<span id="cb32-44"><a href="#cb32-44" tabindex="-1"></a><span class="co">#&gt; Zp:C3          1.2278    0.1735  7.0773 &lt; 0.001 ***</span></span>
+<span id="cb32-45"><a href="#cb32-45" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb32-46"><a href="#cb32-46" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb32-47"><a href="#cb32-47" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb32-48"><a href="#cb32-48" tabindex="-1"></a><span class="co">#&gt; Distal outcome -- three-step estimates:</span></span>
+<span id="cb32-49"><a href="#cb32-49" tabindex="-1"></a><span class="co">#&gt;              Estimate Std.Error  z.value     p.value</span></span>
+<span id="cb32-50"><a href="#cb32-50" tabindex="-1"></a><span class="co">#&gt; mu_C1 (mean)  -0.9851    0.0828 -11.8995 &lt; 0.001 ***</span></span>
+<span id="cb32-51"><a href="#cb32-51" tabindex="-1"></a><span class="co">#&gt; mu_C2 (mean)   0.9298    0.0851  10.9217 &lt; 0.001 ***</span></span>
+<span id="cb32-52"><a href="#cb32-52" tabindex="-1"></a><span class="co">#&gt; mu_C3 (mean)   0.1188    0.0722   1.6458 0.0998  .  </span></span>
+<span id="cb32-53"><a href="#cb32-53" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb32-54"><a href="#cb32-54" tabindex="-1"></a><span class="co">#&gt; Signif. codes: 0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
+<p>Note that with covariates in a model with high separation, the
+standard errors above should, on average, by systematically smaller for
+distal outcome estimation than if there were no covariates in the model
+(see below).</p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" tabindex="-1"></a><span class="fu">three_step</span>(</span>
+<span id="cb33-2"><a href="#cb33-2" tabindex="-1"></a>  <span class="at">data =</span> d.covariate,</span>
+<span id="cb33-3"><a href="#cb33-3" tabindex="-1"></a>  <span class="at">Y.names =</span> <span class="fu">paste0</span>(<span class="st">&quot;Y&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>),</span>
+<span id="cb33-4"><a href="#cb33-4" tabindex="-1"></a>  <span class="at">n_classes =</span> <span class="dv">3</span>,</span>
+<span id="cb33-5"><a href="#cb33-5" tabindex="-1"></a>  <span class="at">Zo.name =</span> <span class="st">&quot;Zo&quot;</span>,</span>
+<span id="cb33-6"><a href="#cb33-6" tabindex="-1"></a>  <span class="at">use.modal.assignment =</span> <span class="cn">FALSE</span></span>
+<span id="cb33-7"><a href="#cb33-7" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb33-8"><a href="#cb33-8" tabindex="-1"></a>  <span class="fu">vcov</span>() <span class="sc">|&gt;</span></span>
+<span id="cb33-9"><a href="#cb33-9" tabindex="-1"></a>  <span class="fu">diag</span>() <span class="sc">|&gt;</span></span>
+<span id="cb33-10"><a href="#cb33-10" tabindex="-1"></a>  <span class="fu">sqrt</span>()</span>
+<span id="cb33-11"><a href="#cb33-11" tabindex="-1"></a><span class="co">#&gt;      mu_C1      mu_C2      mu_C3 </span></span>
+<span id="cb33-12"><a href="#cb33-12" tabindex="-1"></a><span class="co">#&gt; 0.08302639 0.08922331 0.07595896</span></span></code></pre></div>
+<hr />
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<p>Bakk, Z., Tekle, F. B., &amp; Vermunt, J. K. (2013). Estimating the
+association between latent class membership and external variables using
+bias-adjusted three-step approaches. <em>Sociological Methodology</em>,
+43(1), 272–311. <a href="https://doi.org/10.1177/0081175012470644" class="uri">https://doi.org/10.1177/0081175012470644</a></p>
+<p>Bakk, Z., &amp; Kuha, J. (2018). Two-step estimation of models
+between latent classes and external variables. <em>Psychometrika</em>,
+83(4), 871–892. <a href="https://doi.org/10.1007/s11336-017-9592-7" class="uri">https://doi.org/10.1007/s11336-017-9592-7</a></p>
+<p>Bolck, A., Croon, M., &amp; Hagenaars, J. (2004). Estimating latent
+structure models with categorical variables: One-step versus three-step
+estimators. <em>Political Analysis</em>, 12(1), 3–27. <a href="https://doi.org/10.1093/pan/mph001" class="uri">https://doi.org/10.1093/pan/mph001</a></p>
+<p>Lyrvall, J., Di Mari, R., Bakk, Z., Oser, J., &amp; Kuha, J. (2025).
+Multilevel latent class analysis: State-of-the-art methodologies and
+their implementation in the R package multilevLCA. <em>Multivariate
+Behavioral Research</em>, 60(4), 731–747. <a href="https://doi.org/10.1080/00273171.2025.2473935" class="uri">https://doi.org/10.1080/00273171.2025.2473935</a></p>
+<p>Vermunt, J. K. (2010). Latent class modeling with covariates: Two
+improved three-step approaches. <em>Political Analysis</em>, 18(4),
+450–469. <a href="https://doi.org/10.1093/pan/mpq025" class="uri">https://doi.org/10.1093/pan/mpq025</a></p>
+<hr />
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span>
+<span id="cb34-2"><a href="#cb34-2" tabindex="-1"></a><span class="co">#&gt; R version 4.5.1 (2025-06-13 ucrt)</span></span>
+<span id="cb34-3"><a href="#cb34-3" tabindex="-1"></a><span class="co">#&gt; Platform: x86_64-w64-mingw32/x64</span></span>
+<span id="cb34-4"><a href="#cb34-4" tabindex="-1"></a><span class="co">#&gt; Running under: Windows 11 x64 (build 26200)</span></span>
+<span id="cb34-5"><a href="#cb34-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-6"><a href="#cb34-6" tabindex="-1"></a><span class="co">#&gt; Matrix products: default</span></span>
+<span id="cb34-7"><a href="#cb34-7" tabindex="-1"></a><span class="co">#&gt;   LAPACK version 3.12.1</span></span>
+<span id="cb34-8"><a href="#cb34-8" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-9"><a href="#cb34-9" tabindex="-1"></a><span class="co">#&gt; locale:</span></span>
+<span id="cb34-10"><a href="#cb34-10" tabindex="-1"></a><span class="co">#&gt; [1] LC_COLLATE=C                          </span></span>
+<span id="cb34-11"><a href="#cb34-11" tabindex="-1"></a><span class="co">#&gt; [2] LC_CTYPE=English_United States.utf8   </span></span>
+<span id="cb34-12"><a href="#cb34-12" tabindex="-1"></a><span class="co">#&gt; [3] LC_MONETARY=English_United States.utf8</span></span>
+<span id="cb34-13"><a href="#cb34-13" tabindex="-1"></a><span class="co">#&gt; [4] LC_NUMERIC=C                          </span></span>
+<span id="cb34-14"><a href="#cb34-14" tabindex="-1"></a><span class="co">#&gt; [5] LC_TIME=English_United States.utf8    </span></span>
+<span id="cb34-15"><a href="#cb34-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-16"><a href="#cb34-16" tabindex="-1"></a><span class="co">#&gt; time zone: America/Denver</span></span>
+<span id="cb34-17"><a href="#cb34-17" tabindex="-1"></a><span class="co">#&gt; tzcode source: internal</span></span>
+<span id="cb34-18"><a href="#cb34-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-19"><a href="#cb34-19" tabindex="-1"></a><span class="co">#&gt; attached base packages:</span></span>
+<span id="cb34-20"><a href="#cb34-20" tabindex="-1"></a><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span id="cb34-21"><a href="#cb34-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-22"><a href="#cb34-22" tabindex="-1"></a><span class="co">#&gt; other attached packages:</span></span>
+<span id="cb34-23"><a href="#cb34-23" tabindex="-1"></a><span class="co">#&gt; [1] tseLCA_1.0.2</span></span>
+<span id="cb34-24"><a href="#cb34-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb34-25"><a href="#cb34-25" tabindex="-1"></a><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span id="cb34-26"><a href="#cb34-26" tabindex="-1"></a><span class="co">#&gt;  [1] sass_0.4.10        generics_0.1.4     tidyr_1.3.1        pracma_2.4.6      </span></span>
+<span id="cb34-27"><a href="#cb34-27" tabindex="-1"></a><span class="co">#&gt;  [5] hms_1.1.4          digest_0.6.39      magrittr_2.0.3     evaluate_1.0.5    </span></span>
+<span id="cb34-28"><a href="#cb34-28" tabindex="-1"></a><span class="co">#&gt;  [9] RColorBrewer_1.1-3 iterators_1.0.14   fastmap_1.2.0      foreach_1.5.2     </span></span>
+<span id="cb34-29"><a href="#cb34-29" tabindex="-1"></a><span class="co">#&gt; [13] jsonlite_2.0.0     combinat_0.0-8     promises_1.5.0     purrr_1.0.4       </span></span>
+<span id="cb34-30"><a href="#cb34-30" tabindex="-1"></a><span class="co">#&gt; [17] codetools_0.2-20   jquerylib_0.1.4    cli_3.6.6          shiny_1.14.0      </span></span>
+<span id="cb34-31"><a href="#cb34-31" tabindex="-1"></a><span class="co">#&gt; [21] labelled_2.16.0    rlang_1.2.0        cachem_1.1.0       yaml_2.3.12       </span></span>
+<span id="cb34-32"><a href="#cb34-32" tabindex="-1"></a><span class="co">#&gt; [25] otel_0.2.0         klaR_1.7-4         parallel_4.5.1     tools_4.5.1       </span></span>
+<span id="cb34-33"><a href="#cb34-33" tabindex="-1"></a><span class="co">#&gt; [29] dplyr_1.1.4        httpuv_1.6.17      forcats_1.0.1      vctrs_0.6.5       </span></span>
+<span id="cb34-34"><a href="#cb34-34" tabindex="-1"></a><span class="co">#&gt; [33] R6_2.6.1           mime_0.13          lifecycle_1.0.5    multilevLCA_2.1.4 </span></span>
+<span id="cb34-35"><a href="#cb34-35" tabindex="-1"></a><span class="co">#&gt; [37] tictoc_1.2.1       MASS_7.3-65        miniUI_0.1.2       cluster_2.1.8.1   </span></span>
+<span id="cb34-36"><a href="#cb34-36" tabindex="-1"></a><span class="co">#&gt; [41] pkgconfig_2.0.3    pillar_1.11.1      bslib_0.11.0       later_1.4.8       </span></span>
+<span id="cb34-37"><a href="#cb34-37" tabindex="-1"></a><span class="co">#&gt; [45] glue_1.8.0         Rcpp_1.1.1-1.1     haven_2.5.5        xfun_0.52         </span></span>
+<span id="cb34-38"><a href="#cb34-38" tabindex="-1"></a><span class="co">#&gt; [49] tibble_3.2.1       tidyselect_1.2.1   highr_0.12         rstudioapi_0.19.0 </span></span>
+<span id="cb34-39"><a href="#cb34-39" tabindex="-1"></a><span class="co">#&gt; [53] knitr_1.51         xtable_1.8-8       htmltools_0.5.9    rmarkdown_2.31    </span></span>
+<span id="cb34-40"><a href="#cb34-40" tabindex="-1"></a><span class="co">#&gt; [57] clustMixType_0.5-1 compiler_4.5.1     questionr_0.8.2</span></span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

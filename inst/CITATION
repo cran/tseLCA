@@ -1,0 +1,81 @@
+citHeader(
+  "To cite tseLCA in publications, please cite the package itself, along with the methodological papers it implements:"
+)
+
+c(
+  bibentry(
+    bibtype = "Manual",
+    title = "{tseLCA}: Three-Step Estimation for Latent Class Analysis",
+    author = person("Sam", "Lee", email = "samlee@arizona.edu"),
+    year = "2026",
+    note = "R package version 1.0.0",
+    url = "https://github.com/SamLeeBYU/tseLCA",
+    institution = c("Brigham Young University", "University of Arizona")
+  ),
+
+  bibentry(
+    bibtype = "Article",
+    key = "Bakk2013",
+    author = c(
+      person("Zsuzsa", "Bakk"),
+      person("Fetene B.", "Tekle"),
+      person("Jeroen K.", "Vermunt")
+    ),
+    title = "Estimating the Association Between Latent Class Membership and External Variables Using Bias-Adjusted Three-step Approaches",
+    journal = "Sociological Methodology",
+    year = 2013,
+    volume = 43,
+    number = 1,
+    pages = "272--311",
+    doi = "10.1177/0081175012470644"
+  ),
+
+  bibentry(
+    bibtype = "Article",
+    key = "Bakk2014",
+    author = c(
+      person("Zsuzsa", "Bakk"),
+      person("Daniel L.", "Oberski"),
+      person("Jeroen K.", "Vermunt")
+    ),
+    title = "Relating Latent Class Assignments to External Variables: Standard Errors for Correct Inference",
+    journal = "Political Analysis",
+    year = 2014,
+    volume = 22,
+    number = 4,
+    pages = "520--540",
+    url = "http://www.jstor.org/stable/24573086"
+  ),
+
+  bibentry(
+    bibtype = "Article",
+    key = "Bakk2018",
+    author = c(person("Zsuzsa", "Bakk"), person("Jouni", "Kuha")),
+    title = "Two-Step Estimation of Models Between Latent Classes and External Variables",
+    journal = "Psychometrika",
+    year = 2018,
+    volume = 83,
+    number = 4,
+    pages = "871--892",
+    doi = "10.1007/s11336-017-9592-7"
+  ),
+
+  bibentry(
+    bibtype = "Article",
+    key = "Lyrvall2025",
+    author = c(
+      person("Johan", "Lyrvall"),
+      person("Roberto", "Di Mari"),
+      person("Zsuzsa", "Bakk"),
+      person("Jennifer", "Oser"),
+      person("Jouni", "Kuha")
+    ),
+    title = "Multilevel Latent Class Analysis: State-of-the-Art Methodologies and Their Implementation in the R Package multilevLCA",
+    journal = "Multivariate Behavioral Research",
+    year = 2025,
+    volume = "60",
+    number = "4",
+    pages = "731-747",
+    doi = "10.1080/00273171.2025.2473935"
+  )
+)
