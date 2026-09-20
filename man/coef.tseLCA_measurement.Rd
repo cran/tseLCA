@@ -34,7 +34,11 @@
 }
 \value{
 The coefficient matrix (covariate models), named numeric vector
-(distal models), or a named list of both (measurement or both models).
+(distal models -- or, for \code{family = "multinomial"}, a \verb{T x C} matrix of
+category probabilities on the probability scale, not logit; see
+\code{\link[=three_step]{three_step()}}'s \code{family} argument for the boundary/inference
+caveat that comes with that), or a named list of both (measurement or
+both models).
 }
 \description{
 Extract coefficients from a tseLCA model object

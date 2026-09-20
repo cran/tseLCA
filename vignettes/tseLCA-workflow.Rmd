@@ -114,7 +114,7 @@ plot(d.measurement)
 ## Two-step estimates
 
 `fitZ_from_fit0()` fixes the measurement parameters at their Step-1 values and
-estimates multinomial logit coefficients $\gamma$ via EM. These two-step
+estimates multinomial logit coefficients $\gamma$ with EM. These two-step
 estimates serve as starting values for Step 3 and are generally close to the
 final three-step estimates.
 
@@ -207,7 +207,7 @@ summary(d.three_step.simple)
 
 ### BCH estimator
 
-The BCH correction of Bolck, Croon & Hagenaars (2004) is available via
+The BCH correction of Bolck, Croon & Hagenaars (2004) is available with
 `use.bch = TRUE`. It works well with high separation but can produce an
 ill-conditioned Hessian when separation is low (resulting in a covariance matrix that is not positive semi-definite), in which case the ML estimator
 is preferred.
@@ -301,7 +301,7 @@ output of `lca_step1()`. This is useful when you want to:
 - Reuse an expensive measurement model across multiple structural models.
 - Estimate the measurement model on a large reference sample and apply it to a
   smaller analysis sample.
-- Inject custom two-step starting values computed via `fitZ_from_fit0()`.
+- Inject custom two-step starting values computed with `fitZ_from_fit0()`.
 
 ```{r step1-same-data}
 # Reuse the measurement model estimated above
@@ -369,6 +369,53 @@ summary(d.low.three_step.prop3)
 
 ---
 
+## Fixed Step-1 initialization
+
+`multilevLCA::multiLCA()`'s default initialization (k-means on principal
+components) is deterministic given the data, and on some datasets can
+converge to a local rather than global optimum of the Step-1
+log-likelihood. The `startval` argument anchors Step 1 to a fixed starting
+classification instead, bypassing k-means entirely (`kmea = FALSE` under
+the hood).
+
+`startval` accepts an integer classification vector (one predicted class
+per row)...
+
+```{r startval-vector}
+startval.vec <- d.measurement$classifications
+d.three_step.startval <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = startval.vec
+)
+summary(d.three_step.startval)
+```
+
+...or a $T \times C$ conditional item-response probability matrix -- e.g.
+from an external solver such as `poLCA`, or, as here, a first-pass tseLCA
+fit's own `mPhi` expanded to both categories per item.
+
+```{r startval-phi}
+phi.compact <- d.measurement$measurement_model$fit0$mPhi # 6 binary items x 3 classes
+phi.full <- do.call(
+  rbind,
+  lapply(1:6, \(h) rbind(1 - phi.compact[h, ], phi.compact[h, ]))
+)
+d.three_step.startval.phi <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = phi.full
+)
+# Same solution as startval.vec above (both anchor Step 1 to the same fit)
+summary(d.three_step.startval.phi)
+```
+
+---
+
 ## Missing data
 
 `tseLCA` uses a two-pass row-filtering strategy that matches `multilevLCA`'s
@@ -407,7 +454,7 @@ summary(d.sparse.measurement)
 ```
 
 With `incomplete = TRUE`, only fully-missing rows are dropped; partially
-observed rows contribute to the measurement model via FIML.
+observed rows contribute to the measurement model through FIML.
 
 ```{r missing-fiml}
 d.sparse.measurement2 <- three_step(
@@ -522,7 +569,8 @@ text(2.0, 0.65, "Gore affinity")
 
 For distal outcomes ($Z_o \leftarrow X \rightarrow Y$), supply `Zo.name` and a
 `family` argument. The available families are `"gaussian"` (default),
-`"poisson"`, and `"binomial"`. Both ML and BCH estimators are available.
+`"poisson"`, `"binomial"`, and `"multinomial"` (for a nominal categorical
+outcome; see below). Both ML and BCH estimators are available.
 
 ```{r distal-data}
 d.distal <- generate_data(
@@ -567,6 +615,74 @@ d.distal.three_step.bch <- three_step(
 summary(d.distal.three_step.ml)
 summary(d.distal.three_step.bch)
 ```
+
+---
+
+## Categorical distal outcomes
+
+For a nominal `Zo` with two or more categories and no natural ordering,
+`family = "multinomial"` estimates a saturated model: the $T \times C$
+matrix of class-conditional category probabilities
+$\hat\pi_{tc} = P(Z_o = c \mid X = t)$, together with its
+$(TC) \times (TC)$ sandwich covariance.
+
+```{r multinomial-data}
+cat.probs <- matrix(c(.7, .15, .15, .15, .7, .15, .15, .15, .7), 3, 3, byrow = TRUE)
+d.distal$Zcat <- factor(apply(
+  cat.probs[d.distal$X, ],
+  1,
+  \(p) sample(c("low", "mid", "high"), 1, prob = p)
+))
+```
+
+```{r multinomial-fit}
+d.distal.three_step.multi <- three_step(
+  data = d.distal,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zo.name = "Zcat",
+  step1 = d.distal.measurement$measurement_model,
+  family = "multinomial"
+)
+# coef() returns a T x C matrix of category probabilities (rows sum to 1)
+coef(d.distal.three_step.multi)
+summary(d.distal.three_step.multi)
+```
+
+Unlike `"binomial"`, whose `coef()`/`vcov()` are on the logit scale,
+`"multinomial"` reports both directly on the probability scale, so
+`Std.Error` is directly interpretable without a delta-method
+back-transform -- but a symmetric interval `Estimate ± 1.96 * Std.Error`
+can fall outside the unit interval for a probability near a boundary, the
+same familiar limitation as a naive Wald interval for a sample proportion.
+The per-cell `z.value`/`p.value` above (testing each probability against
+zero) are rarely the question of interest; the omnibus test below gives a
+boundary-safe test of whether the outcome's distribution differs across
+classes.
+
+---
+
+## Omnibus test of class equality
+
+`omnibus_test()` runs a generalized Wald test of
+$H_0: \theta_1 = \theta_2 = \cdots = \theta_T$ -- whether the distal
+outcome's distribution is the same for every class -- for any
+`tseLCA_distal` or `tseLCA_both` object, regardless of family. It uses a
+Moore-Penrose pseudo-inverse of the contrast covariance, so it stays valid
+when that covariance is singular, as it always is for
+`family = "multinomial"` (each class's category probabilities sum to 1).
+The resulting degrees of freedom recover the textbook $(T-1)(C-1)$ for a
+$T \times C$ chi-squared test of homogeneity in that case, and $T-1$ for
+the scalar-parameter families.
+
+```{r omnibus}
+omnibus_test(d.distal.three_step.ml)
+omnibus_test(d.distal.three_step.multi)
+```
+
+A significant result only says *some* class differs from some other on
+this outcome, not which -- pairwise post-hoc comparisons with multiplicity
+correction are a natural next step and are not yet implemented in tseLCA.
 
 ---
 

@@ -269,7 +269,7 @@ normalize_fitZ_names <- function(fitZ, Zp.names = NULL, n_classes = NULL) {
 #' \enumerate{
 #'   \item Rebasing `$mGamma`: reconstructing the full T-column log-ratio
 #'     matrix, subtracting the new reference column, and dropping it.
-#'   \item Propagating through `$Varmat_cor` via the delta method: the
+#'   \item Propagating through `$Varmat_cor` with the delta method: the
 #'     rebasing transformation is linear (`gamma_new = A * gamma_old`)
 #'     so the vcov transforms exactly as `A %*% V %*% t(A)`.
 #'   \item Updating all column names.
@@ -312,7 +312,7 @@ permute_fitZ_classes <- function(fitZ, ref_idx) {
   rownames(gamma_new) <- rownames(mGamma)
   fitZ$mGamma <- gamma_new
 
-  # ---- Step 2: propagate Varmat_cor via delta method --------------------------
+  # ---- Step 2: propagate Varmat_cor with the delta method ----------------------
   # The rebasing is a linear map on the vec(mGamma) parameter vector.
   # Stacking columns: theta = vec(mGamma), length = Q*(T-1).
   # After rebasing: theta_new = (A_kron_I_Q) * theta_old
@@ -453,7 +453,7 @@ compress_Y <- function(mY_exp, ivItemcat) {
 #' For dichotomous items (K_h=2) the two columns are stored. For polytomous
 #' items (K_h>2) all K_h columns are stored. This function first compresses
 #' the expanded Y back to integer codes through \code{compress_Y}, then re-expands
-#' consistently via \code{expand_Y} so downstream functions receive the correct
+#' consistently with \code{expand_Y} so downstream functions receive the correct
 #' N x K_total matrix.
 #'
 #' @param fit0       Raw multilevLCA fit object with \code{$mU}, \code{$mPhi},

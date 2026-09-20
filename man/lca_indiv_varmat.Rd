@@ -31,7 +31,7 @@ or \code{NULL} for complete data.}
 the cross-product, weighting by frequency. Default \code{TRUE}.}
 
 \item{u_post}{Optional N x T matrix of posterior class probabilities.
-When supplied (e.g. extracted from \code{fit0$mU} via
+When supplied (e.g. extracted from \code{fit0$mU} with
 \code{extract_Y_from_mU}), \code{compute_posteriors} is skipped.
 Default \code{NULL}.}
 }

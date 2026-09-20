@@ -11,6 +11,8 @@ three_step(
   Zp.names = NULL,
   Zo.name = NULL,
   step1 = NULL,
+  startval = NULL,
+  n_init = NULL,
   use.two.step = TRUE,
   use.modal.assignment = TRUE,
   include.intercept = TRUE,
@@ -48,6 +50,34 @@ for a measurement-only fit. Default \code{NULL}.}
 \item{step1}{Pre-fitted Step-1 object (output of \code{\link[=lca_step1]{lca_step1()}} or a
 prior \code{three_step()} call), or \code{NULL} to run Step 1 internally.
 Default \code{NULL}.}
+
+\item{startval}{Optional starting classification for the Step-1
+measurement model, either an integer vector of length \code{nrow(data)}
+(a class assignment \code{1..n_classes} for every row) or a numeric
+matrix of conditional item-response probabilities
+\eqn{P(Y_h = k \mid X = t)} (one row per item-category pair in
+\code{Y.names} order, one column per class) from which a classification
+is derived internally. See \code{\link[=lca_step1_startval]{lca_step1_startval()}} for the full
+description of both forms and typical sources (an external solver run
+with many random starts, or a published item-response table).
+\pkg{multilevLCA}'s default initialization (k-means on principal
+components) is deterministic given the data and can converge to a local
+optimum of the Step-1 log-likelihood; supplying \code{startval} bypasses
+it entirely (\code{kmea = FALSE} with the classification injected as
+multilevLCA's \code{startval}). Mutually exclusive with \code{step1} and
+\code{n_init}. Default \code{NULL}.}
+
+\item{n_init}{Optional positive integer. If supplied, fits the Step-1
+measurement model \code{n_init} times from independent uniform-random
+classifications (\code{kmea = FALSE}, not multilevLCA's k-means-on-PCA
+path) and keeps the fit with the highest log-likelihood -- the
+unconditional multi-start analog of \code{n_init} in \pkg{StepMix} or
+\code{nrep} in \pkg{poLCA}. This is distinct from
+\code{iter.measurement}, which instead reruns multilevLCA's own k-means
+initialization, and only when the entropy R\eqn{^2} of the default fit
+is below \code{R2.threshold}; \code{n_init} restarts always run.
+Mutually exclusive with \code{step1} and \code{startval}. Default
+\code{NULL}.}
 
 \item{use.two.step}{Logical. Initialize Step-3 from two-step estimates.
 Default \code{TRUE}.}
@@ -96,7 +126,7 @@ or distal outcome model. Default \code{200L}.}
 \item{get.twostep.vcov}{Logical. If \code{TRUE}, obtain \pkg{multilevLCA}'s
 bias-corrected variance-covariance matrix for the two-step gamma estimates
 and store it in \code{$two_step_vcov}. If the \code{fitZ} object passed
-via \code{step1} already contains a \code{Varmat_cor} (from a prior
+through \code{step1} already contains a \code{Varmat_cor} (from a prior
 \code{\link[=fitZ_from_multiLCA]{fitZ_from_multiLCA()}} or plain \code{multiLCA} call), it is attached
 automatically even when \code{get.twostep.vcov = FALSE}. Default
 \code{FALSE}.}
@@ -107,8 +137,34 @@ multinomial logit. The measurement model is permuted so this class becomes
 column 1 before any structural estimation. Default \code{"C1"}.}
 
 \item{family}{Character. Distal outcome family: one of \code{"gaussian"}
-(class means), \code{"poisson"} (log-rates), or \code{"binomial"}
-(logits). Default \code{"gaussian"}.}
+(class means), \code{"poisson"} (log-rates), \code{"binomial"}
+(logits), or \code{"multinomial"} (a saturated model for a nominal
+categorical outcome with 2 or more categories -- \code{Zo.name} may be
+a factor, character, or integer column; categories are taken from
+\code{sort(unique(data[[Zo.name]]))} with \code{factor()}). For
+\code{"multinomial"}, \code{coef()} returns a \code{T x C} matrix of
+class-conditional category probabilities
+\eqn{\hat\pi_{tc} = P(Zo = c \mid X = t)} (rows sum to 1) instead of a
+length-\code{T} vector, and \code{vcov()} returns its
+\code{(T*C) x (T*C)} sandwich covariance (necessarily singular, since
+each class's row sums to 1 -- see \code{\link{omnibus_test}()} for a
+Wald test that accounts for this). Unlike \code{"binomial"}, whose
+\code{coef()}/\code{vcov()} are on the logit scale, \code{"multinomial"}
+reports \code{coef()}/\code{vcov()} directly on the probability scale,
+so \code{Std.Error} is directly interpretable without a delta-method
+back-transform -- but a symmetric interval
+\code{Estimate +/- 1.96*Std.Error} can fall outside \eqn{[0, 1]} for a
+probability near a boundary, the same well-known limitation as a naive
+Wald interval for any sample proportion. The \code{z.value}/\code{p.value}
+columns \code{summary()}/\code{print()} show for this family test each
+probability against 0, which is rarely the question of interest;
+\code{\link{omnibus_test}()} is the intended, boundary-safe test of
+whether the outcome's distribution differs across classes. Combining
+\code{family = "multinomial"} with both \code{Zp.names} and
+\code{Zo.name} fully
+propagates both Step-1 measurement and Step-3 covariate uncertainty
+under \code{use.simple.cov = FALSE}, the same as the other families.
+Default \code{"gaussian"}.}
 
 \item{correct.spec}{Logical. Use the model-robust outer-product Hessian for
 Step-3 standard errors rather than the observed-data Hessian. Not appropriate
@@ -156,9 +212,14 @@ smaller than the equivalent one-step MLE likelihood.}
 \code{Zp.names} is \code{NULL}. Contains:
 \describe{
 \item{\code{three_step}}{Named length-T vector of Step-3 distal outcome
-parameters (means, log-rates, or logits depending on \code{family}).}
+parameters (means, log-rates, or logits depending on
+\code{family}) -- or, for \code{family = "multinomial"}, a
+\code{T x C} matrix of class-conditional category probabilities
+(rows sum to 1).}
 \item{\code{three_step_vcov}}{T x T variance-covariance matrix for
-\code{three_step}, named \code{mu_C1} through \code{mu_CT}.}
+\code{three_step}, named \code{mu_C1} through \code{mu_CT} --
+or, for \code{family = "multinomial"}, a \code{(T*C) x (T*C)}
+(necessarily rank-deficient) matrix named \code{"C{t}:{category}"}.}
 \item{\code{three_step.llik}}{Step-3 distal log-likelihood
 \eqn{\log P(Z_o|X=t)} at converged estimates.}
 \item{\code{llik}}{Profile log-likelihood
@@ -247,12 +308,37 @@ fit_dis <- three_step(d2, Y.names = paste0("Y", 1:6), n_classes = 3,
                       use.simple.cov = TRUE)
 summary(fit_dis)
 
+# Nominal categorical distal outcome (3+ categories): coef() returns a
+# T x C matrix of class-conditional category probabilities; omnibus_test()
+# gives a single Wald test of whether the category distribution differs
+# across classes at all.
+d2$Zcat <- factor(sample(c("low", "mid", "high"), nrow(d2), replace = TRUE))
+fit_cat <- three_step(d2, Y.names = paste0("Y", 1:6), n_classes = 3,
+                      Zo.name = "Zcat", family = "multinomial",
+                      use.simple.cov = TRUE)
+coef(fit_cat)
+omnibus_test(fit_cat)
+
 # Pass a pre-fitted measurement model to skip Step 1
 fit_step1 <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3)
 fit2 <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
                    Zp.names = "Zp", step1 = fit_step1,
                    use.simple.cov = TRUE)
 summary(fit2)
+
+# Supply an external starting classification for Step 1 (bypasses
+# multilevLCA's k-means-on-PCA initialization; here we use the DGP's own
+# true classes as a stand-in for e.g. a StepMix solution with many
+# random starts)
+fit_ext <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
+                      startval = d$X, use.simple.cov = TRUE)
+summary(fit_ext)
+
+# Many random-classification restarts for Step 1, keeping the best
+# (analogous to n_init in StepMix or nrep in poLCA)
+fit_ninit <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
+                        n_init = 20L, use.simple.cov = TRUE)
+summary(fit_ninit)
 
 # Plot item-response profiles from the measurement model
 plot(fit)
@@ -274,7 +360,8 @@ Behavioral Research}. \doi{10.1080/00273171.2025.2473935}
 }
 \seealso{
 \code{vignette("tseLCA", package = "tseLCA")} for a full worked
-example; \code{\link[=lca_step1]{lca_step1()}} for standalone Step-1 estimation;
-\code{\link[=fitZ_from_fit0]{fitZ_from_fit0()}} and \code{\link[=fitZ_from_multiLCA]{fitZ_from_multiLCA()}} for two-step covariate
-estimation.
+example; \code{\link[=lca_step1]{lca_step1()}} for standalone Step-1 estimation
+(including from an externally supplied starting classification, with its
+own \code{startval} argument); \code{\link[=fitZ_from_fit0]{fitZ_from_fit0()}} and \code{\link[=fitZ_from_multiLCA]{fitZ_from_multiLCA()}}
+for two-step covariate estimation.
 }

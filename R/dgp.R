@@ -62,7 +62,7 @@ bk2018_params <- list(
 
   # Intercepts b02 ~ 2.3446, b03 ~ -3.6554 are the unique solution to
   # colMeans(P(X|Zp)) = (1/3, 1/3, 1/3) for Zp ~ Uniform\{1..5\} and slopes
-  # b = (0, -1, 1).  Derived once by numerical optimisation; hardcoded here
+  # b = (0, -1, 1).  Derived once by numerical optimization; hardcoded here
   # so the package does not run an optimizer at load time.
   covariate_params = list(
     b0 = c(0, 2.3445911086, -3.6553700529), # intercepts (ref class = 1)
@@ -249,8 +249,8 @@ draw_Zo <- function(X, params) {
 #'   Maps to pi = 0.70, 0.80, 0.90 respectively.
 #' @param scenario   Character. One of:
 #'   \describe{
-#'     \item{`"covariate"`}{Zp (discrete, 1-5) predicts latent X via multinomial logit.}
-#'     \item{`"distal"`}{Latent X predicts continuous Zo via linear regression.}
+#'     \item{`"covariate"`}{Zp (discrete, 1-5) predicts latent X with multinomial logit.}
+#'     \item{`"distal"`}{Latent X predicts continuous Zo with linear regression.}
 #'   }
 #' @param params     List of population parameters.  Defaults to [tseLCA::bk2018_params].
 #' @param seed       Integer or `NULL`. Optional random seed for reproducibility.

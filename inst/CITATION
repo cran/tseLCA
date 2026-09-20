@@ -8,9 +8,9 @@ c(
     title = "{tseLCA}: Three-Step Estimation for Latent Class Analysis",
     author = person("Sam", "Lee", email = "samlee@arizona.edu"),
     year = "2026",
-    note = "R package version 1.0.0",
+    note = "R package version 1.1.0",
     url = "https://github.com/SamLeeBYU/tseLCA",
-    institution = c("Brigham Young University", "University of Arizona")
+    institution = "University of Arizona"
   ),
 
   bibentry(

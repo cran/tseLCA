@@ -222,6 +222,33 @@ d.low.three_step.prop3 <- three_step(
 )
 summary(d.low.three_step.prop3)
 
+## ----startval-vector----------------------------------------------------------
+startval.vec <- d.measurement$classifications
+d.three_step.startval <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = startval.vec
+)
+summary(d.three_step.startval)
+
+## ----startval-phi-------------------------------------------------------------
+phi.compact <- d.measurement$measurement_model$fit0$mPhi # 6 binary items x 3 classes
+phi.full <- do.call(
+  rbind,
+  lapply(1:6, \(h) rbind(1 - phi.compact[h, ], phi.compact[h, ]))
+)
+d.three_step.startval.phi <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = phi.full
+)
+# Same solution as startval.vec above (both anchor Step 1 to the same fit)
+summary(d.three_step.startval.phi)
+
 ## ----missing-data-setup-------------------------------------------------------
 set.seed(42)
 d.new <- generate_data(500, separation = "high", seed = 3)
@@ -375,6 +402,31 @@ d.distal.three_step.bch <- three_step(
 
 summary(d.distal.three_step.ml)
 summary(d.distal.three_step.bch)
+
+## ----multinomial-data---------------------------------------------------------
+cat.probs <- matrix(c(.7, .15, .15, .15, .7, .15, .15, .15, .7), 3, 3, byrow = TRUE)
+d.distal$Zcat <- factor(apply(
+  cat.probs[d.distal$X, ],
+  1,
+  \(p) sample(c("low", "mid", "high"), 1, prob = p)
+))
+
+## ----multinomial-fit----------------------------------------------------------
+d.distal.three_step.multi <- three_step(
+  data = d.distal,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zo.name = "Zcat",
+  step1 = d.distal.measurement$measurement_model,
+  family = "multinomial"
+)
+# coef() returns a T x C matrix of category probabilities (rows sum to 1)
+coef(d.distal.three_step.multi)
+summary(d.distal.three_step.multi)
+
+## ----omnibus------------------------------------------------------------------
+omnibus_test(d.distal.three_step.ml)
+omnibus_test(d.distal.three_step.multi)
 
 ## ----covariate-distal-fit-----------------------------------------------------
 d.covariate <- generate_data(

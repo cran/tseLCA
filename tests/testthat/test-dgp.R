@@ -82,7 +82,7 @@ test_that("generate_data rejects invalid n", {
   expect_error(generate_data(1.5, "high", "covariate"))
 })
 
-test_that("generate_data rejects invalid separation and scenario via match.arg", {
+test_that("generate_data rejects invalid separation and scenario with match.arg", {
   expect_error(generate_data(100L, "bad", "covariate"))
   expect_error(generate_data(100L, "high", "bad"))
 })

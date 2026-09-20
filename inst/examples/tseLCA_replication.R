@@ -267,7 +267,7 @@ summary(d.three_step.simpleC3)
 ### pass in measurement model as argument
 ##############################################################
 message(
-  "\n---- Passing pre-fitted measurement model via step1 ------------------------------------------"
+  "\n---- Passing pre-fitted measurement model with step1 ------------------------------------------"
 )
 
 #The first stage measurement can be passed in as an argument
@@ -332,6 +332,45 @@ d.low.three_step.prop3 <- three_step(
   step1 = d.low.measurement2000$measurement_model
 )
 summary(d.low.three_step.prop3)
+
+##############################################################
+### fixed Step-1 initialization (startval)
+##############################################################
+message(
+  "\n---- Step 1 from a fixed starting classification (startval) --------------------------------"
+)
+
+#multiLCA's default k-means initialization is deterministic and can land on a
+# local optimum; startval fixes the Step-1 EM start instead (disables k-means)
+
+#startval can be a classification vector (one predicted class per row)...
+startval.vec <- d.measurement$classifications
+d.three_step.startval <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = startval.vec
+)
+summary(d.three_step.startval)
+
+#...or a T x C item-response probability matrix (e.g. from an external solver
+# such as poLCA, or, as here, a first-pass tseLCA fit's own mPhi expanded to
+# both categories per item)
+phi.compact <- d.measurement$measurement_model$fit0$mPhi #6 binary items x 3 classes
+phi.full <- do.call(
+  rbind,
+  lapply(1:6, \(h) rbind(1 - phi.compact[h, ], phi.compact[h, ]))
+)
+d.three_step.startval.phi <- three_step(
+  data = d,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zp.names = "Zp",
+  startval = phi.full
+)
+#Same solution as startval.vec above (both anchor Step 1 to the same fit)
+summary(d.three_step.startval.phi)
 
 ##############################################################
 ### missing data
@@ -439,25 +478,73 @@ elec <- election
 elec.items <- colnames(election)[1:12]
 #Like multiLCA, we require that all variables in Y are coded as sequential integers with base level coded as 0
 elec[, elec.items] <- lapply(elec[, elec.items], function(x) as.integer(x) - 1L)
-
-#Measurement model (again, not necessarily required to be ran separately like this)
 elec.measurement <- three_step(
   data = elec,
   Y.names = elec.items,
   n_classes = 3,
-  incomplete = TRUE
+  incomplete = FALSE
 )
+
 elec.three_step <- three_step(
   data = elec,
   Y.names = elec.items,
   n_classes = 3,
-  Zp.names = c("PARTY"),
+  Zp.names = "PARTY",
+  use.simple.cov = TRUE,
   step1 = elec.measurement$measurement_model,
-  incomplete = TRUE,
-  #With the neutral group as the base-category
+  incomplete = FALSE,
   rebase = "C3"
 )
-summary(elec.three_step)
+
+party.x <- seq(from = 1, to = 7, length.out = 101)
+pidmat <- cbind(1, party.x)
+exb.tse <- exp(pidmat %*% coef(elec.three_step))
+probs.tse <- (cbind(1, exb.tse)) / (1 + rowSums(exb.tse))
+
+f.party <- cbind(
+  MORALG,
+  CARESG,
+  KNOWG,
+  LEADG,
+  DISHONG,
+  INTELG,
+  MORALB,
+  CARESB,
+  KNOWB,
+  LEADB,
+  DISHONB,
+  INTELB
+) ~ PARTY
+nes.party <- poLCA::poLCA(f.party, election, nclass = 3, verbose = FALSE)
+
+exb.polca <- exp(pidmat %*% nes.party$coeff)
+probs.polca <- (cbind(1, exb.polca)) / (1 + rowSums(exb.polca))
+
+matplot(
+  party.x,
+  probs.tse,
+  ylim = c(0, 1),
+  type = "l",
+  lwd = 3,
+  col = 1,
+  lty = 1,
+  xlab = "Party ID: strong Democratic (1) to strong Republican (7)",
+  ylab = "Probability of latent class membership",
+  main = "Party ID as a predictor of candidate affinity class"
+)
+matlines(party.x, probs.polca, lwd = 2, col = 1, lty = 2)
+
+text(3.9, 0.60, "Other")
+text(6.2, 0.6, "Bush affinity")
+text(2.0, 0.65, "Gore affinity")
+legend(
+  "topright",
+  legend = c("tseLCA (3-step)", "poLCA (1-step)"),
+  lty = c(1, 2),
+  lwd = c(3, 2),
+  col = 1,
+  bty = "n"
+)
 
 ###################################################
 ### distal outcomes
@@ -522,6 +609,47 @@ d.distal.three_step.bch <- three_step(
 #Note that the mean (mu) parameters for each class were generated as -1, 1, and 0 for classes C1, C2, and C3, respectively
 summary(d.distal.three_step.ml)
 summary(d.distal.three_step.bch)
+
+###################################################
+### nominal categorical distal outcomes
+###################################################
+message(
+  "\n---- Distal outcomes: nominal categorical (family=\"multinomial\") -------------------------------"
+)
+
+#For a Zo with 2+ categories and no natural ordering, family="multinomial"
+# estimates a saturated model: the T x C matrix of class-conditional
+# category probabilities pi_hat[t, c] = P(Zo = c | X = t)
+cat.probs <- matrix(c(.7, .15, .15, .15, .7, .15, .15, .15, .7), 3, 3, byrow = TRUE)
+d.distal$Zcat <- factor(apply(
+  cat.probs[d.distal$X, ],
+  1,
+  \(p) sample(c("low", "mid", "high"), 1, prob = p)
+))
+
+d.distal.three_step.multi <- three_step(
+  data = d.distal,
+  Y.names = paste0("Y", 1:6),
+  n_classes = 3,
+  Zo.name = "Zcat",
+  step1 = d.distal.measurement$measurement_model,
+  family = "multinomial"
+)
+#coef() returns a T x C matrix of category probabilities (rows sum to 1)
+coef(d.distal.three_step.multi)
+summary(d.distal.three_step.multi)
+
+###################################################
+### omnibus test of class equality (distal outcomes)
+###################################################
+message(
+  "\n---- Omnibus test: does the distal outcome differ across classes? -------------------------------"
+)
+
+#omnibus_test() runs a generalized Wald test of H0: the distal outcome's
+# distribution is the same for every class -- works for any family
+omnibus_test(d.distal.three_step.ml)
+omnibus_test(d.distal.three_step.multi)
 
 #########################################################################
 ### three-step estimation with both covariates (Zp) and distal outcomes

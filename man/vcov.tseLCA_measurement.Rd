@@ -41,7 +41,10 @@ parameterization. Row/column names identify each parameter as
 \code{"parameterization"} is attached as a reminder. Returns \code{NULL}
 invisibly if \code{fit0$mU} is not available. For structural models,
 returns the Step-3 vcov matrix; the two-step vcov is only available
-when \code{get.twostep.vcov = TRUE}.
+when \code{get.twostep.vcov = TRUE}. For distal models with
+\code{family = "multinomial"}, this is instead on the probability scale
+(see \code{\link[=three_step]{three_step()}}'s \code{family} argument for the caveat that
+comes with that).
 }
 \description{
 For measurement models, returns the BHHH variance-covariance matrix in

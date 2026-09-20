@@ -452,7 +452,7 @@ lca_step2 <- function(
 #'
 #' Computes the T x T observed-data Hessian matrix at the current parameter
 #' vector beta = (mu_1, ..., mu_T) for Gaussian, Poisson, or Binomial families,
-#' accounting for classification error via the p.wx_mat correction matrix.
+#' accounting for classification error with the p.wx_mat correction matrix.
 #' Used by lca_step3.distal to invert for the naive SE estimate.
 #' @noRd
 ml_hessian_distal <- function(
@@ -498,6 +498,267 @@ ml_hessian_distal <- function(
   -H_pos # Hessian of neg.ll
 }
 
+#' BCH classification-error-corrected weight matrix
+#'
+#' Computes the N x T BCH weight matrix used throughout the BCH estimators:
+#' \code{w.it = w.is \%*\% t(pwx)^-1}, where \code{pwx[s, t] = P(W = s | X =
+#' t)} is the column-stochastic classification-error matrix from
+#' \code{compute_pwx_adj()}/\code{lca_step2()} (\code{colSums(pwx) == 1}).
+#' @noRd
+bch_weight_matrix <- function(w.is, pwx) {
+  w.is %*% t(qr.solve(pwx))
+}
+
+#' Moore-Penrose pseudo-inverse and numerical rank with SVD
+#'
+#' Used by the omnibus class-equality Wald test (`omnibus_test()`), whose
+#' contrast covariance is rank-deficient for the multinomial family (each
+#' class's C-vector of category probabilities sums to 1, so a difference of
+#' two classes' full probability vectors always sums to 0 across
+#' categories) and may be for other families too under boundary/near-
+#' collinear fits. `qr()`-based rank/solve is avoided because it is less
+#' numerically stable than SVD for a covariance matrix that is exactly
+#' singular by construction, not just ill-conditioned.
+#' @noRd
+pinv_rank <- function(M, tol = sqrt(.Machine$double.eps)) {
+  s <- svd(M)
+  keep <- s$d > (tol * max(s$d))
+  d_inv <- ifelse(keep, 1 / s$d, 0)
+  list(pinv = s$v %*% (d_inv * t(s$u)), rank = sum(keep))
+}
+
+#' Analytic Jacobian of the multinomial-distal ML estimating equation
+#'
+#' Computes the closed-form Jacobian `d Psi / d theta` of the ML estimating
+#' equation `Psi_(t,c)(theta) = sum_i r_it(theta) * (1(y_i=c) - theta_tc)`
+#' used by `lca_step3.distal.multinomial()`, where `r_it(theta) = A_it *
+#' theta_{t,y_i} / q_i(theta)`, `A_it = pi_adj[i,t] * ae[i,t]` (fixed given
+#' Step 1/2), and `q_i(theta) = sum_t A_it * theta_{t,y_i}`. The bread is
+#' `-`this Jacobian.
+#'
+#' By the quotient rule, `d r_it / d theta_{t',c'}` is nonzero only when
+#' `c' = y_i` (only entries `theta_{., y_i}` affect case `i`'s density), and
+#' equals `1(y_i=c') * [1(t=t') * A_it/q_i - r_it * A_i,t'/q_i]`; using
+#' `A_it/q_i = r_it / theta_{t,y_i}` throughout gives, after restricting the
+#' sum over `i` to cases observed in category `c'` (where `theta_{t,y_i} =
+#' theta_{t,c'}` is a constant, not indexed by `i`):
+#' \preformatted{
+#'   d Psi_(t,c) / d theta_{t',c'} =
+#'     [1(c'=c) - theta_tc] * [1(t=t') * R1(t,c') - R2(t,t',c')] / theta_{t',c'}
+#'     - 1(t=t') * 1(c=c') * sum_i r_it
+#'   R1(t,c')    = sum_{i: y_i=c'} r_it
+#'   R2(t,t',c') = sum_{i: y_i=c'} r_it * r_i,t'
+#' }
+#' Cross-checked against central-difference numerical differentiation of
+#' `Psi` (matched to 1e-6, the expected step-size error of that method) and,
+#' downstream, against `optim()` and independent from-scratch
+#' reimplementations of the full sandwich (see the "full propagation" tests
+#' in test-integration.R).
+#' @noRd
+multinomial_ml_jacobian <- function(pi_hat, r_it, Y_cat) {
+  iT <- nrow(pi_hat)
+  C <- ncol(pi_hat)
+  n_par <- iT * C
+  Jac <- matrix(0, n_par, n_par)
+  r_colsums <- colSums(r_it)
+
+  for (cprime in seq_len(C)) {
+    idx_i <- which(Y_cat == cprime)
+    if (length(idx_i) == 0L) {
+      next
+    }
+    r_sub <- r_it[idx_i, , drop = FALSE]
+    R1 <- colSums(r_sub) # length iT
+    R2 <- crossprod(r_sub) # iT x iT
+
+    for (tprime in seq_len(iT)) {
+      col_idx <- (cprime - 1L) * iT + tprime
+      denom <- pmax(pi_hat[tprime, cprime], 1e-300)
+
+      for (c in seq_len(C)) {
+        indicator_cc <- as.numeric(cprime == c)
+        for (t in seq_len(iT)) {
+          row_idx <- (c - 1L) * iT + t
+          bracket <- (if (t == tprime) R1[t] else 0) - R2[t, tprime]
+          term1 <- (indicator_cc - pi_hat[t, c]) * bracket / denom
+          term2 <- if (t == tprime && c == cprime) r_colsums[t] else 0
+          Jac[row_idx, col_idx] <- term1 - term2
+        }
+      }
+    }
+  }
+  Jac
+}
+
+#' Step 3 (distal, multinomial): estimate class-conditional category
+#' probabilities for a nominal categorical distal outcome
+#'
+#' Estimates the T x C matrix `pi_hat[t, c] = P(Zo = c | X = t)` for a
+#' saturated (nominal) multinomial distal outcome with C categories, using the
+#' closed-form weighted-proportion estimator
+#' `pi_hat[t, c] = sum_i w_it * 1(y_i = c) / sum_i w_it`, using either the
+#' BCH weight matrix (fixed given Step 1/2) or, for ML, EM-updated posterior
+#' responsibilities (both give the same closed-form M-step; only the E-step
+#' weights differ). Returns the same contract as `lca_step3.distal()`
+#' (`res$par`, `H.3.inv`, `three_step.score`), with `res$par` the
+#' column-major-flattened `pi_hat` (`matrix(par, nrow = iT, ncol = C)`
+#' recovers it) so downstream sandwich-variance code is unchanged.
+#'
+#' For BCH, the score is the moment/estimating-equation form the weighted
+#' proportion solves, `s_i,(t,c) = w_it * (1(y_i=c) - pi_hat[t,c])`; its
+#' bread is exactly `diag(1 / colSums(w_it))` (repeated across categories)
+#' since `w_it` does not depend on `pi_hat`. For ML, the same estimating
+#' equation is used with `w_it` replaced by the (theta-dependent) posterior
+#' responsibility `r_it`; its bread is `solve(-Jacobian(Psi))`, with the
+#' Jacobian given in closed form by `multinomial_ml_jacobian()`. That
+#' Jacobian reduces to the BCH bread when responsibility is held fixed and
+#' otherwise captures the same "observed = complete - missing information"
+#' correction `ml_hessian_distal()` derives by hand for the other families
+#' (both conventions were checked to give identical `H.3.inv` formulas on
+#' the existing gaussian/binomial BCH and ML paths).
+#' @noRd
+lca_step3.distal.multinomial <- function(
+  Y_cat,
+  C,
+  iT,
+  covariate.tol,
+  use.bch = FALSE,
+  w.is_cc = NULL,
+  pwx = NULL,
+  em.maxIter = 200L,
+  vPi = NULL,
+  pi_mat = NULL,
+  verbose = FALSE
+) {
+  N <- length(Y_cat)
+  onehot_y <- matrix(0, N, C)
+  onehot_y[cbind(seq_len(N), Y_cat)] <- 1
+
+  pi_s <- if (!is.null(pi_mat)) {
+    pi_mat
+  } else {
+    matrix(vPi, ncol = iT, nrow = N, byrow = TRUE)
+  }
+
+  # T x C closed-form weighted-proportion M-step for any N x T weight matrix.
+  weighted_props <- function(w) {
+    sweep(t(w) %*% onehot_y, 1, colSums(w), "/")
+  }
+
+  # N x (iT*C) estimating-equation matrix, column-major in (t, c): columns
+  # 1:iT are category 1 for classes 1..iT, columns (iT+1):(2*iT) are
+  # category 2, etc. -- matches matrix(theta, nrow = iT, ncol = C).
+  score_matrix <- function(w, pi_hat) {
+    J <- matrix(0, N, iT * C)
+    for (c in seq_len(C)) {
+      idx <- ((c - 1L) * iT + 1L):(c * iT)
+      J[, idx] <- w * onehot_y[, c] - sweep(w, 2, pi_hat[, c], "*")
+    }
+    J
+  }
+
+  if (use.bch) {
+    w.it <- bch_weight_matrix(w.is_cc, pwx)
+    w_colsums <- colSums(w.it)
+    if (any(w_colsums <= 0)) {
+      stop(
+        "BCH weights have non-positive column sums for at least one class. ",
+        "The variance-covariance matrix will not be positive semi-definite. ",
+        "Consider use.bch = FALSE.",
+        call. = FALSE
+      )
+    }
+    pi_hat <- weighted_props(w.it)
+    log_pzx_bch <- log(pmax(t(pi_hat[, Y_cat, drop = FALSE]), 1e-300))
+
+    three_step.score <- function(params) {
+      score_matrix(w.it, matrix(params, nrow = iT, ncol = C))
+    }
+
+    H.3.inv <- diag(rep(1 / w_colsums, times = C))
+    res <- list(
+      par = as.vector(pi_hat),
+      value = -sum(w.it * log_pzx_bch),
+      convergence = 0L
+    )
+  } else {
+    # EM: E-step (posterior responsibilities) / M-step (weighted
+    # proportions, closed form). Initialize from a smoothed crosstab of the
+    # modal Step-2 assignment against the observed category.
+    init_class <- factor(max.col(w.is_cc), levels = seq_len(iT))
+    init_cat <- factor(Y_cat, levels = seq_len(C))
+    pi_hat <- unclass(table(init_class, init_cat)) + 0.5
+    pi_hat <- pi_hat / rowSums(pi_hat)
+    storage.mode(pi_hat) <- "double"
+
+    ll_prev <- -Inf
+    r_it <- NULL
+    for (iter in seq_len(em.maxIter)) {
+      pzx_mat <- t(pi_hat[, Y_cat, drop = FALSE]) # N x T: P(y_i | X = t)
+      ae <- w.is_cc %*% pwx # N x T
+      q_i <- rowSums(pi_s * pzx_mat * ae)
+      r_it <- pi_s * pzx_mat * ae / q_i
+
+      pi_hat_new <- weighted_props(r_it)
+      pi_hat_new <- pmax(pmin(pi_hat_new, 1 - 1e-10), 1e-10)
+      pi_hat_new <- pi_hat_new / rowSums(pi_hat_new)
+
+      ll_new <- sum(log(pmax(q_i, 1e-300)))
+      if (iter > 1L && abs(ll_new - ll_prev) < covariate.tol) {
+        pi_hat <- pi_hat_new
+        if (verbose) {
+          message(sprintf(
+            "Multinomial ML EM converged in %d iterations.",
+            iter
+          ))
+        }
+        break
+      }
+      pi_hat <- pi_hat_new
+      ll_prev <- ll_new
+      if (iter == em.maxIter) {
+        warning("Multinomial ML EM reached maximum iterations.")
+      }
+    }
+
+    pzx_mat <- t(pi_hat[, Y_cat, drop = FALSE])
+    ae <- w.is_cc %*% pwx
+    q_i <- rowSums(pi_s * pzx_mat * ae)
+
+    three_step.score <- function(params) {
+      pi_hat_p <- matrix(params, nrow = iT, ncol = C)
+      pzx_mat_p <- t(pi_hat_p[, Y_cat, drop = FALSE])
+      ae_p <- w.is_cc %*% pwx
+      q_i_p <- rowSums(pi_s * pzx_mat_p * ae_p)
+      r_it_p <- pi_s * pzx_mat_p * ae_p / q_i_p
+      score_matrix(r_it_p, pi_hat_p)
+    }
+
+    theta_hat <- as.vector(pi_hat)
+    r_it <- pi_s * pzx_mat * ae / q_i
+    Jac <- multinomial_ml_jacobian(pi_hat, r_it, Y_cat)
+
+    H.3.inv <- tryCatch(
+      qr.solve(-Jac),
+      error = function(e) {
+        warning("Hessian inversion failed. SEs will be NA.")
+        matrix(NA_real_, iT * C, iT * C)
+      }
+    )
+    res <- list(
+      par = theta_hat,
+      value = -sum(log(pmax(q_i, 1e-300))),
+      convergence = 0L
+    )
+  }
+
+  list(
+    res = res,
+    H.3.inv = H.3.inv,
+    three_step.score = three_step.score
+  )
+}
+
 #' Step 3 (distal): estimate class-specific distal outcome parameters
 #'
 #' Estimates mu = (mu_1, ..., mu_T) for Gaussian (means), Poisson (log-rates),
@@ -531,8 +792,7 @@ lca_step3.distal <- function(
   }
 
   if (use.bch) {
-    D <- qr.solve(pwx)
-    w.it <- w.is_cc %*% D # N x T
+    w.it <- bch_weight_matrix(w.is_cc, pwx) # N x T
 
     score_nt_bch <- function(mu) {
       if (family == "gaussian") {
@@ -743,7 +1003,7 @@ lca_step3.distal <- function(
 
 #' Step 3 (covariate): estimate multinomial logit gamma with either BCH or ML EM
 #'
-#' Optimizes the Q x (T-1) coefficient matrix gamma for P(X=t|Z_i) via
+#' Optimizes the Q x (T-1) coefficient matrix gamma for P(X=t|Z_i) with
 #' Newton-Raphson (BCH) or EM with an inner NR M-step (ML). Returns the
 #' parameter vector, the inverted Hessian H.3.inv (or NA matrix on failure),
 #' used by lca_vcov for sandwich variance propagation.
@@ -770,8 +1030,7 @@ lca_step3 <- function(
   H <- NULL
   # print(ll_prev)
   if (use.bch) {
-    D <- qr.solve(pwx)
-    w.it <- w.is_cc %*% D # N x T
+    w.it <- bch_weight_matrix(w.is_cc, pwx) # N x T
     w.it_plus <- rowSums(w.it)
 
     for (nr in seq_len(em.maxIter)) {
@@ -1039,7 +1298,7 @@ lca_step3 <- function(
 #' @param use.freq    Logical. Collapse duplicate score rows before computing
 #'   the cross-product, weighting by frequency. Default \code{TRUE}.
 #' @param u_post      Optional N x T matrix of posterior class probabilities.
-#'   When supplied (e.g. extracted from \code{fit0$mU} via
+#'   When supplied (e.g. extracted from \code{fit0$mU} with
 #'   \code{extract_Y_from_mU}), \code{compute_posteriors} is skipped.
 #'   Default \code{NULL}.
 #'
@@ -1455,6 +1714,128 @@ lca_vcov_distal <- function(
   result
 }
 
+#' Distal outcome variance-covariance for the multinomial family
+#'
+#' Multinomial analog of \code{lca_vcov_distal()}: assembles the
+#' \code{(iT*C) x (iT*C)} sandwich variance matrix for the flattened T x C
+#' class-conditional probability matrix \code{pi_hat}
+#' (\code{matrix(theta_hat, nrow = iT, ncol = C)} recovers it), propagating
+#' Step-1 measurement uncertainty (\code{C1_mat}/\code{step1.uncertainty})
+#' and, when both a covariate and distal model are fitted, Step-3 covariate
+#' uncertainty (\code{C_mat}/\code{step2.uncertainty}) when
+#' \code{use.bch = FALSE} and \code{use.simple.cov = FALSE}. The
+#' generalization from scalar \code{mu_t} (one parameter per class, as in
+#' \code{lca_vcov_distal()}) to \code{pi_hat[t, ]} (C parameters per class)
+#' only touches the "unit score" \code{g_it}: instead of dividing the
+#' length-\code{iT} score by \code{r_it} once, the length-\code{iT*C} score
+#' is divided by \code{r_it} replicated across the C categories, since
+#' neither chain-rule term (\code{dr}, through \code{d ae/d theta2}; nor
+#' \code{inner_t}, through \code{d r_it/d gamma}) depends on the category
+#' dimension at all -- only on which class \code{t} a given column belongs
+#' to. Both terms were cross-validated against independent numerical
+#' differentiation of the case-wise estimating equation (see the "full
+#' propagation" tests in test-integration.R).
+#' @noRd
+lca_vcov_distal_multinomial <- function(
+  theta_hat,
+  three_step.score,
+  pi_adj,
+  w.is,
+  p.wx_mat,
+  Y_cat,
+  C,
+  H.3.inv,
+  Sigma.1,
+  s2,
+  iT,
+  use.simple.cov,
+  use.bch,
+  Sigma.3 = NULL,
+  s3.par = NULL,
+  p.xz.cov = NULL,
+  Z_mat_cov = NULL
+) {
+  J.3 <- three_step.score(theta_hat) # N x (iT*C)
+  meat <- crossprod(J.3)
+
+  if (use.bch || use.simple.cov) {
+    return(H.3.inv %*% meat %*% H.3.inv)
+  }
+
+  pwx <- p.wx_mat
+  pi_hat <- matrix(theta_hat, nrow = iT, ncol = C)
+
+  pzx_mat <- t(pi_hat[, Y_cat, drop = FALSE]) # N x T
+  ae <- w.is %*% pwx # N x T
+  q_i <- rowSums(pi_adj * pzx_mat * ae)
+  r_it <- pi_adj * pzx_mat * ae / q_i # N x T
+
+  r_it_expanded <- r_it[, rep(seq_len(iT), times = C), drop = FALSE] # N x (iT*C)
+  g_it <- J.3 / pmax(r_it_expanded, 1e-300)
+
+  n_par <- iT * C
+
+  # -- C1_mat: Step-1 measurement-uncertainty propagation (see lca_vcov_distal()) ----
+  n_theta2 <- iT * (iT - 1L)
+  C1_mat <- matrix(0, n_par, n_theta2)
+  col_idx <- 0L
+
+  for (t0 in seq_len(iT)) {
+    for (s0 in seq_len(iT)) {
+      if (s0 == t0) {
+        next
+      }
+      col_idx <- col_idx + 1L
+      v <- pwx[s0, t0]
+      dae <- v * (w.is[, s0] - ae[, t0])
+      c_i <- dae / pmax(ae[, t0], 1e-300)
+      for (tk in seq_len(n_par)) {
+        t <- ((tk - 1L) %% iT) + 1L
+        dr <- if (t == t0) {
+          r_it[, t0] * c_i * (1 - r_it[, t0])
+        } else {
+          -r_it[, t] * r_it[, t0] * c_i
+        }
+        C1_mat[tk, col_idx] <- sum(dr * g_it[, tk])
+      }
+    }
+  }
+
+  step1.uncertainty <- C1_mat %*% s2$J.2 %*% Sigma.1 %*% t(s2$J.2) %*% t(C1_mat)
+
+  # -- C_mat: Step-3 covariate-uncertainty propagation (see lca_vcov_distal()) -------
+  # gamma enters through pi_adj = p.xz.cov(gamma); pwx (and hence r_it's
+  # dependence on it) is treated as fixed, exactly as in lca_vcov_distal().
+  step2.uncertainty <- matrix(0, n_par, n_par)
+
+  if (!is.null(s3.par) && !is.null(p.xz.cov) && !is.null(Z_mat_cov)) {
+    Q_cov <- ncol(Z_mat_cov)
+    C_mat <- matrix(0, n_par, (iT - 1L) * Q_cov)
+
+    m_it <- pzx_mat * ae / q_i # N x T (== r_it / pi_adj)
+    pi_cov <- p.xz.cov(matrix(s3.par, ncol = iT - 1L)) # N x T
+    m_pi_sum <- rowSums(m_it * pi_cov) # N: sum_t m_{it}*pi_{it}
+
+    for (l in seq_len(iT - 1L)) {
+      A_il <- pi_cov[, l + 1L] * (m_it[, l + 1L] - m_pi_sum) # N
+      idx_l <- ((l - 1L) * Q_cov + 1L):(l * Q_cov)
+      for (tk in seq_len(n_par)) {
+        t <- ((tk - 1L) %% iT) + 1L
+        delta_tl <- as.integer(t == l + 1L)
+        inner_t <- m_it[, t] *
+          pi_cov[, t] *
+          (delta_tl - pi_cov[, l + 1L]) -
+          r_it[, t] * A_il # N
+        C_mat[tk, idx_l] <- colSums(g_it[, tk] * inner_t * Z_mat_cov)
+      }
+    }
+
+    step2.uncertainty <- C_mat %*% Sigma.3 %*% t(C_mat)
+  }
+
+  H.3.inv %*% (meat + step1.uncertainty + step2.uncertainty) %*% H.3.inv
+}
+
 
 #' Three-step LCA estimation with covariates and/or distal outcomes
 #'
@@ -1485,6 +1866,32 @@ lca_vcov_distal <- function(
 #' @param step1 Pre-fitted Step-1 object (output of [tseLCA::lca_step1()] or a
 #'   prior \code{three_step()} call), or \code{NULL} to run Step 1 internally.
 #'   Default \code{NULL}.
+#' @param startval Optional starting classification for the Step-1
+#'   measurement model, either an integer vector of length \code{nrow(data)}
+#'   (a class assignment \code{1..n_classes} for every row) or a numeric
+#'   matrix of conditional item-response probabilities
+#'   \eqn{P(Y_h = k \mid X = t)} (one row per item-category pair in
+#'   \code{Y.names} order, one column per class) from which a classification
+#'   is derived internally. See [lca_step1_startval()] for the full
+#'   description of both forms and typical sources (an external solver run
+#'   with many random starts, or a published item-response table).
+#'   \pkg{multilevLCA}'s default initialization (k-means on principal
+#'   components) is deterministic given the data and can converge to a local
+#'   optimum of the Step-1 log-likelihood; supplying \code{startval} bypasses
+#'   it entirely (\code{kmea = FALSE} with the classification injected as
+#'   multilevLCA's \code{startval}). Mutually exclusive with \code{step1} and
+#'   \code{n_init}. Default \code{NULL}.
+#' @param n_init Optional positive integer. If supplied, fits the Step-1
+#'   measurement model \code{n_init} times from independent uniform-random
+#'   classifications (\code{kmea = FALSE}, not multilevLCA's k-means-on-PCA
+#'   path) and keeps the fit with the highest log-likelihood -- the
+#'   unconditional multi-start analog of \code{n_init} in \pkg{StepMix} or
+#'   \code{nrep} in \pkg{poLCA}. This is distinct from
+#'   \code{iter.measurement}, which instead reruns multilevLCA's own k-means
+#'   initialization, and only when the entropy R\eqn{^2} of the default fit
+#'   is below \code{R2.threshold}; \code{n_init} restarts always run.
+#'   Mutually exclusive with \code{step1} and \code{startval}. Default
+#'   \code{NULL}.
 #' @param use.two.step Logical. Initialize Step-3 from two-step estimates.
 #'   Default \code{TRUE}.
 #' @param use.modal.assignment Logical. Use modal (hard) class assignments in
@@ -1519,7 +1926,7 @@ lca_vcov_distal <- function(
 #' @param get.twostep.vcov Logical. If \code{TRUE}, obtain \pkg{multilevLCA}'s
 #'   bias-corrected variance-covariance matrix for the two-step gamma estimates
 #'   and store it in \code{$two_step_vcov}. If the \code{fitZ} object passed
-#'   via \code{step1} already contains a \code{Varmat_cor} (from a prior
+#'   through \code{step1} already contains a \code{Varmat_cor} (from a prior
 #'   [fitZ_from_multiLCA()] or plain \code{multiLCA} call), it is attached
 #'   automatically even when \code{get.twostep.vcov = FALSE}. Default
 #'   \code{FALSE}.
@@ -1528,8 +1935,34 @@ lca_vcov_distal <- function(
 #'   multinomial logit. The measurement model is permuted so this class becomes
 #'   column 1 before any structural estimation. Default \code{"C1"}.
 #' @param family Character. Distal outcome family: one of \code{"gaussian"}
-#'   (class means), \code{"poisson"} (log-rates), or \code{"binomial"}
-#'   (logits). Default \code{"gaussian"}.
+#'   (class means), \code{"poisson"} (log-rates), \code{"binomial"}
+#'   (logits), or \code{"multinomial"} (a saturated model for a nominal
+#'   categorical outcome with 2 or more categories -- \code{Zo.name} may be
+#'   a factor, character, or integer column; categories are taken from
+#'   \code{sort(unique(data[[Zo.name]]))} with \code{factor()}). For
+#'   \code{"multinomial"}, \code{coef()} returns a \code{T x C} matrix of
+#'   class-conditional category probabilities
+#'   \eqn{\hat\pi_{tc} = P(Zo = c \mid X = t)} (rows sum to 1) instead of a
+#'   length-\code{T} vector, and \code{vcov()} returns its
+#'   \code{(T*C) x (T*C)} sandwich covariance (necessarily singular, since
+#'   each class's row sums to 1 -- see \code{\link{omnibus_test}()} for a
+#'   Wald test that accounts for this). Unlike \code{"binomial"}, whose
+#'   \code{coef()}/\code{vcov()} are on the logit scale, \code{"multinomial"}
+#'   reports \code{coef()}/\code{vcov()} directly on the probability scale,
+#'   so \code{Std.Error} is directly interpretable without a delta-method
+#'   back-transform -- but a symmetric interval
+#'   \code{Estimate +/- 1.96*Std.Error} can fall outside \eqn{[0, 1]} for a
+#'   probability near a boundary, the same well-known limitation as a naive
+#'   Wald interval for any sample proportion. The \code{z.value}/\code{p.value}
+#'   columns \code{summary()}/\code{print()} show for this family test each
+#'   probability against 0, which is rarely the question of interest;
+#'   \code{\link{omnibus_test}()} is the intended, boundary-safe test of
+#'   whether the outcome's distribution differs across classes. Combining
+#'   \code{family = "multinomial"} with both \code{Zp.names} and
+#'   \code{Zo.name} fully
+#'   propagates both Step-1 measurement and Step-3 covariate uncertainty
+#'   under \code{use.simple.cov = FALSE}, the same as the other families.
+#'   Default \code{"gaussian"}.
 #' @param correct.spec Logical. Use the model-robust outer-product Hessian for
 #'   Step-3 standard errors rather than the observed-data Hessian. Not appropriate
 #'   when the Step-3 model may be misspecified. Default \code{FALSE}.
@@ -1574,9 +2007,14 @@ lca_vcov_distal <- function(
 #'       \code{Zp.names} is \code{NULL}. Contains:
 #'       \describe{
 #'         \item{`three_step`}{Named length-T vector of Step-3 distal outcome
-#'           parameters (means, log-rates, or logits depending on \code{family}).}
+#'           parameters (means, log-rates, or logits depending on
+#'           \code{family}) -- or, for \code{family = "multinomial"}, a
+#'           \code{T x C} matrix of class-conditional category probabilities
+#'           (rows sum to 1).}
 #'         \item{`three_step_vcov`}{T x T variance-covariance matrix for
-#'           \code{three_step}, named \code{mu_C1} through \code{mu_CT}.}
+#'           \code{three_step}, named \code{mu_C1} through \code{mu_CT} --
+#'           or, for \code{family = "multinomial"}, a \code{(T*C) x (T*C)}
+#'           (necessarily rank-deficient) matrix named \code{"C{t}:{category}"}.}
 #'         \item{`three_step.llik`}{Step-3 distal log-likelihood
 #'           \eqn{\log P(Z_o|X=t)} at converged estimates.}
 #'         \item{`llik`}{Profile log-likelihood
@@ -1623,9 +2061,10 @@ lca_vcov_distal <- function(
 #'   Behavioral Research}. \doi{10.1080/00273171.2025.2473935}
 #'
 #' @seealso \code{vignette("tseLCA", package = "tseLCA")} for a full worked
-#'   example; [tseLCA::lca_step1()] for standalone Step-1 estimation;
-#'   [fitZ_from_fit0()] and [fitZ_from_multiLCA()] for two-step covariate
-#'   estimation.
+#'   example; [tseLCA::lca_step1()] for standalone Step-1 estimation
+#'   (including from an externally supplied starting classification, with its
+#'   own `startval` argument); [fitZ_from_fit0()] and [fitZ_from_multiLCA()]
+#'   for two-step covariate estimation.
 #'
 #' @examples
 #' d <- generate_data(n = 200, separation = "high",
@@ -1667,12 +2106,37 @@ lca_vcov_distal <- function(
 #'                       use.simple.cov = TRUE)
 #' summary(fit_dis)
 #'
+#' # Nominal categorical distal outcome (3+ categories): coef() returns a
+#' # T x C matrix of class-conditional category probabilities; omnibus_test()
+#' # gives a single Wald test of whether the category distribution differs
+#' # across classes at all.
+#' d2$Zcat <- factor(sample(c("low", "mid", "high"), nrow(d2), replace = TRUE))
+#' fit_cat <- three_step(d2, Y.names = paste0("Y", 1:6), n_classes = 3,
+#'                       Zo.name = "Zcat", family = "multinomial",
+#'                       use.simple.cov = TRUE)
+#' coef(fit_cat)
+#' omnibus_test(fit_cat)
+#'
 #' # Pass a pre-fitted measurement model to skip Step 1
 #' fit_step1 <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3)
 #' fit2 <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
 #'                    Zp.names = "Zp", step1 = fit_step1,
 #'                    use.simple.cov = TRUE)
 #' summary(fit2)
+#'
+#' # Supply an external starting classification for Step 1 (bypasses
+#' # multilevLCA's k-means-on-PCA initialization; here we use the DGP's own
+#' # true classes as a stand-in for e.g. a StepMix solution with many
+#' # random starts)
+#' fit_ext <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
+#'                       startval = d$X, use.simple.cov = TRUE)
+#' summary(fit_ext)
+#'
+#' # Many random-classification restarts for Step 1, keeping the best
+#' # (analogous to n_init in StepMix or nrep in poLCA)
+#' fit_ninit <- three_step(d, Y.names = paste0("Y", 1:6), n_classes = 3,
+#'                         n_init = 20L, use.simple.cov = TRUE)
+#' summary(fit_ninit)
 #'
 #' # Plot item-response profiles from the measurement model
 #' plot(fit)
@@ -1685,6 +2149,8 @@ three_step <- function(
   Zp.names = NULL,
   Zo.name = NULL,
   step1 = NULL,
+  startval = NULL,
+  n_init = NULL,
   use.two.step = TRUE,
   use.modal.assignment = TRUE,
   include.intercept = TRUE,
@@ -1706,6 +2172,18 @@ three_step <- function(
 ) {
   # -- Step 1: measurement model -----------------------------------------------
   ref_idx <- parse_rebase(rebase, n_classes)
+
+  n_step1_inputs <- sum(!is.null(step1), !is.null(startval), !is.null(n_init))
+  if (n_step1_inputs > 1L) {
+    stop(
+      "`step1`, `startval`, and `n_init` are mutually exclusive ways of ",
+      "controlling Step 1: supply a pre-fitted measurement model with ",
+      "`step1`, a starting classification (or item-response probability ",
+      "matrix) to fit one with `startval`, or a number of random restarts ",
+      "with `n_init`, not more than one of these.",
+      call. = FALSE
+    )
+  }
 
   if (!is.null(step1)) {
     # Normalize: accept raw lca_step1() list or any tseLCA object
@@ -1734,6 +2212,8 @@ three_step <- function(
       incomplete = incomplete,
       include.intercept = include.intercept,
       rebase = rebase,
+      startval = startval,
+      n_init = n_init,
       verbose = verbose
     )
   }
@@ -1757,6 +2237,21 @@ three_step <- function(
     )
   }
   fitZ <- s1$fitZ
+
+  # -- Multinomial distal outcome: encode categories as 1..C -------------------
+  zo_levels <- NULL
+  if (!is.null(Zo.name) && family == "multinomial") {
+    zo_factor <- factor(data[[Zo.name]])
+    zo_levels <- levels(zo_factor)
+    if (length(zo_levels) < 2L) {
+      stop(
+        "`Zo.name` must have at least 2 distinct categories for ",
+        "family = \"multinomial\".",
+        call. = FALSE
+      )
+    }
+    data[[Zo.name]] <- as.integer(zo_factor)
+  }
 
   # -- Data preparation --------------------------------------------------------
   cd <- clean_data(
@@ -1927,8 +2422,7 @@ three_step <- function(
     }
 
     if (use.bch) {
-      D <- qr.solve(s2_for_cov$p.wx_mat)
-      w.it <- s2_for_cov$w.is %*% D
+      w.it <- bch_weight_matrix(s2_for_cov$w.is, s2_for_cov$p.wx_mat)
 
       .ll_bch <- function(params, pwx = NULL) {
         beta.cur <- matrix(params, ncol = iT - 1)
@@ -2145,6 +2639,8 @@ three_step <- function(
         R2.threshold = R2.threshold,
         incomplete = incomplete,
         rebase = rebase,
+        startval = startval,
+        n_init = n_init,
         verbose = verbose
       )
       if (is.null(fitZ)) {
@@ -2169,7 +2665,7 @@ three_step <- function(
     # what the covariates already explain.
     #   error_prior = H(X|Z):   average entropy of P(X|Z_i) under fitted gamma
     #   error_post  = H(X|Y,Z): average entropy of P(X|Y_i,Z_i), recomputed
-    #                            with the covariate-adjusted prior via
+    #                            with the covariate-adjusted prior from
     #                            compute_pwx_adj (soft posterior assignment)
     #   R^2 = (H(X|Z) - H(X|Y,Z)) / H(X|Z)
     .h <- function(p) {
@@ -2219,12 +2715,11 @@ three_step <- function(
   }
 
   if (!is.null(Zo_mat)) {
-    if (!(family %in% c("gaussian", "poisson", "binomial"))) {
+    if (!(family %in% c("gaussian", "poisson", "binomial", "multinomial"))) {
       message(
-        'Provided family is not one of "gaussian", "poisson", nor "binomial". Defaulting to family="gaussain".'
+        'Provided family is not one of "gaussian", "poisson", "binomial", nor "multinomial". Defaulting to family="gaussain".'
       )
     }
-
     if (!is.null(Zp.names)) {
       Z_mat_dis <- if (!is.null(Z_mat) && length(keep_step3_Zo) > 0L) {
         Z_full_raw <- if (include.intercept) {
@@ -2284,163 +2779,275 @@ three_step <- function(
 
     w.is_dis <- res_adj$w.is
 
-    # Create p.zx : The function that maps latent indicators to oberved distal outcome Zo (need a choice of likelihood)
+    if (family == "multinomial") {
+      Y_cat_dis <- Zo_mat[, 1L] # already 1..C integer-coded, see above
+      C <- length(zo_levels)
 
-    if (family == "poisson") {
-      p.zx <- function(params) {
-        log_mu <- params[1:iT]
-        mu <- exp(log_mu)
-        z <- Zo_mat[, 1L]
-        outer(z, log_mu, "*") - # N x T: z_i * log(mu_t)
-          outer(rep(1, nrow(Zo_mat)), mu, "*") - # N x T: mu_t
-          lgamma(z + 1L) # N x 1, recycled
-      }
-      starting.lm <- glm(
-        Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)),
-        family = poisson()
+      s3.distal <- lca_step3.distal.multinomial(
+        Y_cat = Y_cat_dis,
+        C = C,
+        iT = iT,
+        covariate.tol = covariate.tol,
+        use.bch = use.bch,
+        w.is_cc = res_adj$w.is,
+        pwx = res_adj$p.wx_mat,
+        em.maxIter = em.maxIter,
+        vPi = fit0$vPi,
+        pi_mat = pi_adj,
+        verbose = verbose
       )
-      beta_init <- coef(starting.lm)
-    } else if (family == "binomial") {
-      # params: logit(mu_t)
-      p.zx <- function(params) {
-        logit_mu <- params[1:iT]
-        mu <- 1 / (1 + exp(-logit_mu))
-        z <- Zo_mat[, 1L]
-        outer(z, log(mu), "*") + # N x T
-          outer(1 - z, log(1 - mu), "*")
-      }
-      starting.lm <- glm(
-        Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)),
-        family = binomial()
+
+      #Variance-covariance
+      Sigma.3.distal <- lca_vcov_distal_multinomial(
+        theta_hat = s3.distal$res$par,
+        three_step.score = s3.distal$three_step.score,
+        pi_adj = pi_adj,
+        w.is = res_adj$w.is,
+        p.wx_mat = res_adj$p.wx_mat,
+        Y_cat = Y_cat_dis,
+        C = C,
+        H.3.inv = s3.distal$H.3.inv,
+        Sigma.1 = if (use.simple.cov || use.bch) {
+          NULL
+        } else {
+          lca_indiv_varmat(
+            step1_Y$Y.exp,
+            step1_Y$mDesign,
+            fit0,
+            step1_Y$ivItemcat,
+            boundary.tol = boundary.tol,
+            u_post = step1_Y$u_post
+          )$Varmat
+        },
+        s2 = s2_for_dis,
+        iT = iT,
+        use.simple.cov = use.simple.cov,
+        use.bch = use.bch,
+        Sigma.3 = if (!is.null(Zp.names)) Sigma.3 else NULL,
+        s3.par = if (!is.null(Zp.names)) s3$res$par else NULL,
+        p.xz.cov = if (!is.null(Zp.names) && exists("p.xz_dis")) {
+          p.xz_dis
+        } else if (!is.null(Zp.names)) {
+          p.xz
+        } else {
+          NULL
+        },
+        Z_mat_cov = if (!is.null(Zp.names) && !is.null(Z_mat_dis)) {
+          Z_mat_dis
+        } else if (!is.null(Zp.names)) {
+          Z_mat
+        } else {
+          NULL
+        }
       )
-      beta_init <- coef(starting.lm) # already on logit scale
-    } else {
-      #(family == "gaussian")
-      p.zx <- function(params) {
-        mu <- params[1:iT]
-        resid <- outer(Zo_mat[, 1L], mu, "-")
-        -0.5 * resid^2 - 0.5 * log(2 * pi)
-      }
-      starting.lm <- lm(Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)))
-      beta_init <- coef(starting.lm)
-    }
 
-    if (use.bch) {
-      D <- qr.solve(res_adj$p.wx_mat)
-      w.it <- res_adj$w.is %*% D
+      class_labels <- paste0("C", seq_len(iT))
+      pi_hat_mat <- matrix(s3.distal$res$par, nrow = iT, ncol = C)
+      dimnames(pi_hat_mat) <- list(class_labels, zo_levels)
+      param_labels <- as.vector(outer(
+        class_labels,
+        zo_levels,
+        paste,
+        sep = ":"
+      ))
+      dimnames(Sigma.3.distal) <- list(param_labels, param_labels)
 
-      neg.ll <- function(params) {
-        -sum(w.it * p.zx(params))
-      }
-    } else {
-      neg.ll <- function(params) {
-        pzx <- exp(pmax(p.zx(params), -500))
-        # classification error probabilities for each person's assignment
-        assignment_errors <- res_adj$w.is %*% res_adj$p.wx_mat
-        -sum(log(rowSums(pi_adj * pzx * assignment_errors)))
-      }
-    }
+      distal_par <- pi_hat_mat
 
-    s3.distal <- lca_step3.distal(
-      neg.ll = neg.ll,
-      em.maxIter = em.maxIter,
-      pwx = res_adj$p.wx_mat,
-      w.is_cc = res_adj$w.is,
-      Zo_cc = Zo_mat[, 1L],
-      use.bch = use.bch,
-      covariate.tol = covariate.tol,
-      iT = iT,
-      beta_init = beta_init,
-      family = family,
-      p.zx = p.zx,
-      vPi = fit0$vPi,
-      pi_mat = pi_adj
-    )
+      # -- Distal log-likelihood, AIC, BIC ------------------------------------
+      distal.llik <- -s3.distal$res$value
 
-    #Variance-covariance
-    Sigma.3.distal <- lca_vcov_distal(
-      mu_hat = s3.distal$res$par,
-      three_step.score = s3.distal$three_step.score,
-      pi_adj = pi_adj,
-      w.is = res_adj$w.is,
-      p.wx_mat = res_adj$p.wx_mat,
-      p.zx = p.zx,
-      family = family,
-      H.3.inv = s3.distal$H.3.inv,
-      Sigma.1 = if (use.simple.cov || use.bch) {
-        NULL
-      } else {
-        lca_indiv_varmat(
-          step1_Y$Y.exp,
-          step1_Y$mDesign,
-          fit0,
-          step1_Y$ivItemcat,
-          boundary.tol = boundary.tol,
-          u_post = step1_Y$u_post
-        )$Varmat
-      },
-      s2 = s2_for_dis,
-      Sigma.3 = if (!is.null(Zp.names)) Sigma.3 else NULL,
-      s3.par = if (!is.null(Zp.names)) s3$res$par else NULL,
-      p.xz.cov = if (!is.null(Zp.names) && exists("p.xz_dis")) {
-        p.xz_dis
-      } else if (!is.null(Zp.names)) {
-        p.xz
+      # log P(Zo_i = y_i | X=t) at converged pi_hat: N_dis x iT
+      log_pZo_t <- log(pmax(t(pi_hat_mat[, Y_cat_dis, drop = FALSE]), 1e-300))
+
+      Y_dis <- Y.obs[keep_step3_Zo_in_Y, , drop = FALSE]
+      mDes_dis <- if (!is.null(mDesign)) {
+        mDesign[keep_step3_Zo_in_Y, , drop = FALSE]
       } else {
         NULL
-      },
-      Z_mat_cov = if (!is.null(Zp.names) && !is.null(Z_mat_dis)) {
-        Z_mat_dis
-      } else if (!is.null(Zp.names)) {
-        Z_mat
+      }
+
+      total.llik.dis <- joint_log_lik_distal(
+        Y = Y_dis,
+        mPhi = expand_Phi(fit0$mPhi, ivItemcat),
+        log_pZo_t = log_pZo_t,
+        pi_mat = pi_adj, # N x T: P(X=t|Zp_i) or flat vPi
+        mDesign = mDes_dis
+      )
+
+      n_meas_params <- (iT - 1L) +
+        sum(ifelse(ivItemcat == 2L, 1L, ivItemcat - 1L)) * iT
+      n_distal_params <- iT * (C - 1L) # T x (C-1) free simplex parameters
+      total.k.dis <- n_meas_params + n_distal_params
+      N_dis <- length(keep_step3_Zo)
+
+      s3.distal.list <- list(
+        three_step = distal_par,
+        three_step_vcov = Sigma.3.distal,
+        three_step.llik = distal.llik,
+        llik = total.llik.dis,
+        AIC = -2 * total.llik.dis + 2 * total.k.dis,
+        BIC = -2 * total.llik.dis + total.k.dis * log(N_dis),
+        zo_levels = zo_levels
+      )
+    } else {
+      # Create p.zx : The function that maps latent indicators to oberved distal outcome Zo (need a choice of likelihood)
+
+      if (family == "poisson") {
+        p.zx <- function(params) {
+          log_mu <- params[1:iT]
+          mu <- exp(log_mu)
+          z <- Zo_mat[, 1L]
+          outer(z, log_mu, "*") - # N x T: z_i * log(mu_t)
+            outer(rep(1, nrow(Zo_mat)), mu, "*") - # N x T: mu_t
+            lgamma(z + 1L) # N x 1, recycled
+        }
+        starting.lm <- glm(
+          Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)),
+          family = poisson()
+        )
+        beta_init <- coef(starting.lm)
+      } else if (family == "binomial") {
+        # params: logit(mu_t)
+        p.zx <- function(params) {
+          logit_mu <- params[1:iT]
+          mu <- 1 / (1 + exp(-logit_mu))
+          z <- Zo_mat[, 1L]
+          outer(z, log(mu), "*") + # N x T
+            outer(1 - z, log(1 - mu), "*")
+        }
+        starting.lm <- glm(
+          Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)),
+          family = binomial()
+        )
+        beta_init <- coef(starting.lm) # already on logit scale
+      } else {
+        #(family == "gaussian")
+        p.zx <- function(params) {
+          mu <- params[1:iT]
+          resid <- outer(Zo_mat[, 1L], mu, "-")
+          -0.5 * resid^2 - 0.5 * log(2 * pi)
+        }
+        starting.lm <- lm(Zo_mat[, 1L] ~ -1 + as.factor(max.col(w.is_dis)))
+        beta_init <- coef(starting.lm)
+      }
+
+      if (use.bch) {
+        w.it <- bch_weight_matrix(res_adj$w.is, res_adj$p.wx_mat)
+
+        neg.ll <- function(params) {
+          -sum(w.it * p.zx(params))
+        }
+      } else {
+        neg.ll <- function(params) {
+          pzx <- exp(pmax(p.zx(params), -500))
+          # classification error probabilities for each person's assignment
+          assignment_errors <- res_adj$w.is %*% res_adj$p.wx_mat
+          -sum(log(rowSums(pi_adj * pzx * assignment_errors)))
+        }
+      }
+
+      s3.distal <- lca_step3.distal(
+        neg.ll = neg.ll,
+        em.maxIter = em.maxIter,
+        pwx = res_adj$p.wx_mat,
+        w.is_cc = res_adj$w.is,
+        Zo_cc = Zo_mat[, 1L],
+        use.bch = use.bch,
+        covariate.tol = covariate.tol,
+        iT = iT,
+        beta_init = beta_init,
+        family = family,
+        p.zx = p.zx,
+        vPi = fit0$vPi,
+        pi_mat = pi_adj
+      )
+
+      #Variance-covariance
+      Sigma.3.distal <- lca_vcov_distal(
+        mu_hat = s3.distal$res$par,
+        three_step.score = s3.distal$three_step.score,
+        pi_adj = pi_adj,
+        w.is = res_adj$w.is,
+        p.wx_mat = res_adj$p.wx_mat,
+        p.zx = p.zx,
+        family = family,
+        H.3.inv = s3.distal$H.3.inv,
+        Sigma.1 = if (use.simple.cov || use.bch) {
+          NULL
+        } else {
+          lca_indiv_varmat(
+            step1_Y$Y.exp,
+            step1_Y$mDesign,
+            fit0,
+            step1_Y$ivItemcat,
+            boundary.tol = boundary.tol,
+            u_post = step1_Y$u_post
+          )$Varmat
+        },
+        s2 = s2_for_dis,
+        Sigma.3 = if (!is.null(Zp.names)) Sigma.3 else NULL,
+        s3.par = if (!is.null(Zp.names)) s3$res$par else NULL,
+        p.xz.cov = if (!is.null(Zp.names) && exists("p.xz_dis")) {
+          p.xz_dis
+        } else if (!is.null(Zp.names)) {
+          p.xz
+        } else {
+          NULL
+        },
+        Z_mat_cov = if (!is.null(Zp.names) && !is.null(Z_mat_dis)) {
+          Z_mat_dis
+        } else if (!is.null(Zp.names)) {
+          Z_mat
+        } else {
+          NULL
+        },
+        iT = iT,
+        use.simple.cov = use.simple.cov,
+        use.bch = use.bch
+      )
+
+      distal_par <- s3.distal$res$par
+      names(distal_par) <- paste0("mu_C", seq_len(iT))
+
+      # -- Distal log-likelihood, AIC, BIC ----------------------------------------
+      # Step-3 llik: log P(Zo|X=t) weighted by class assignments.
+      # Total joint llik: sum_i log[ sum_t P(X=t|Zp_i) P(Zo_i|X=t) P(Y_i|X=t) ]
+      distal.llik <- -s3.distal$res$value
+
+      # log P(Zo_i | X=t) at converged mu_hat: N_dis x iT
+      log_pZo_t <- p.zx(distal_par)
+
+      Y_dis <- Y.obs[keep_step3_Zo_in_Y, , drop = FALSE]
+      mDes_dis <- if (!is.null(mDesign)) {
+        mDesign[keep_step3_Zo_in_Y, , drop = FALSE]
       } else {
         NULL
-      },
-      iT = iT,
-      use.simple.cov = use.simple.cov,
-      use.bch = use.bch
-    )
+      }
 
-    distal_par <- s3.distal$res$par
-    names(distal_par) <- paste0("mu_C", seq_len(iT))
+      total.llik.dis <- joint_log_lik_distal(
+        Y = Y_dis,
+        mPhi = expand_Phi(fit0$mPhi, ivItemcat),
+        log_pZo_t = log_pZo_t,
+        pi_mat = pi_adj, # N x T: P(X=t|Zp_i) or flat vPi
+        mDesign = mDes_dis
+      )
 
-    # -- Distal log-likelihood, AIC, BIC ----------------------------------------
-    # Step-3 llik: log P(Zo|X=t) weighted by class assignments (from optim).
-    # Total joint llik: sum_i log[ sum_t P(X=t|Zp_i) P(Zo_i|X=t) P(Y_i|X=t) ]
-    distal.llik <- -s3.distal$res$value
+      n_meas_params <- (iT - 1L) +
+        sum(ifelse(ivItemcat == 2L, 1L, ivItemcat - 1L)) * iT
+      n_distal_params <- iT
+      total.k.dis <- n_meas_params + n_distal_params
+      N_dis <- length(keep_step3_Zo)
 
-    # log P(Zo_i | X=t) at converged mu_hat: N_dis x iT
-    log_pZo_t <- p.zx(distal_par)
-
-    Y_dis <- Y.obs[keep_step3_Zo_in_Y, , drop = FALSE]
-    mDes_dis <- if (!is.null(mDesign)) {
-      mDesign[keep_step3_Zo_in_Y, , drop = FALSE]
-    } else {
-      NULL
-    }
-
-    total.llik.dis <- joint_log_lik_distal(
-      Y = Y_dis,
-      mPhi = expand_Phi(fit0$mPhi, ivItemcat),
-      log_pZo_t = log_pZo_t,
-      pi_mat = pi_adj, # N x T: P(X=t|Zp_i) or flat vPi
-      mDesign = mDes_dis
-    )
-
-    n_meas_params <- (iT - 1L) +
-      sum(ifelse(ivItemcat == 2L, 1L, ivItemcat - 1L)) * iT
-    n_distal_params <- iT
-    total.k.dis <- n_meas_params + n_distal_params
-    N_dis <- length(keep_step3_Zo)
-
-    s3.distal.list <- list(
-      three_step = distal_par,
-      three_step_vcov = Sigma.3.distal,
-      three_step.llik = distal.llik,
-      llik = total.llik.dis,
-      AIC = -2 * total.llik.dis + 2 * total.k.dis,
-      BIC = -2 * total.llik.dis + total.k.dis * log(N_dis)
-    )
+      s3.distal.list <- list(
+        three_step = distal_par,
+        three_step_vcov = Sigma.3.distal,
+        three_step.llik = distal.llik,
+        llik = total.llik.dis,
+        AIC = -2 * total.llik.dis + 2 * total.k.dis,
+        BIC = -2 * total.llik.dis + total.k.dis * log(N_dis)
+      )
+    } # end else (family != "multinomial")
   }
 
   if (!is.null(Zo_mat) && is.null(Z_mat)) {
@@ -2503,8 +3110,15 @@ three_step <- function(
 #' Format distal outcome estimates as a printable data frame
 #' @noRd
 .distal_table <- function(x, family) {
-  # x is a tseLCA_distal or x$distal for tseLCA_both
-  est <- x$three_step
+  # x is a tseLCA_distal or x$distal for tseLCA_both. For family =
+  # "multinomial", x$three_step is a T x C matrix (class x category); flatten
+  # it in the same column-major (t, c) order used to name x$three_step_vcov.
+  if (is.matrix(x$three_step)) {
+    est <- as.vector(x$three_step)
+    names(est) <- rownames(x$three_step_vcov)
+  } else {
+    est <- x$three_step
+  }
   se <- sqrt(diag(x$three_step_vcov))
   zval <- est / se
   pval <- 2 * pnorm(-abs(zval))
@@ -2513,6 +3127,7 @@ three_step <- function(
     gaussian = "(mean)",
     poisson = "(log mean)",
     binomial = "(logit)",
+    multinomial = "(probability)",
     "(parameter)"
   )
   data.frame(
@@ -2522,6 +3137,26 @@ three_step <- function(
     p.value = pval,
     row.names = paste0(names(est), " ", scale_label),
     check.names = FALSE
+  )
+}
+
+#' One-line reminder printed after a multinomial distal-outcome table
+#'
+#' `Std.Error` above is on the probability scale, not logit, so it's
+#' directly interpretable as SE(pi_hat) -- but a symmetric interval
+#' `Estimate +/- 1.96*Std.Error` can fall outside the unit interval for
+#' probabilities near a boundary, and the printed `z.value`/`p.value` test each
+#' probability against 0, which is rarely the question of interest.
+#' `omnibus_test()` gives the intended, boundary-safe test of whether the
+#' outcome's distribution differs across classes.
+#' @noRd
+.multinomial_caveat_note <- function() {
+  cat(
+    "Note: Std.Error above is on the probability scale; the per-cell z/p-value\n",
+    "tests each probability against 0 (rarely of interest), and a symmetric\n",
+    "CI can fall outside [0, 1] near a boundary. See omnibus_test() for a\n",
+    "test of whether the distribution differs across classes.\n",
+    sep = ""
   )
 }
 
@@ -2647,8 +3282,17 @@ print.tseLCA_distal <- function(x, digits = 4, ...) {
       x$BIC
     ))
   }
-  cat("\nDistal outcome means by class:\n")
+  cat(
+    if (fam == "multinomial") {
+      "\nDistal outcome category probabilities by class:\n"
+    } else {
+      "\nDistal outcome means by class:\n"
+    }
+  )
   .print_table(.distal_table(x, fam), digits = digits)
+  if (fam == "multinomial") {
+    .multinomial_caveat_note()
+  }
   invisible(x)
 }
 
@@ -2672,8 +3316,17 @@ print.tseLCA_both <- function(x, digits = 4, ...) {
   ))
   cat("\nCovariate coefficients (three-step):\n")
   .print_table(.covariate_table(x$covariate), digits = digits)
-  cat("\nDistal outcome means by class:\n")
+  cat(
+    if (fam == "multinomial") {
+      "\nDistal outcome category probabilities by class:\n"
+    } else {
+      "\nDistal outcome means by class:\n"
+    }
+  )
   .print_table(.distal_table(x$distal, fam), digits = digits)
+  if (fam == "multinomial") {
+    .multinomial_caveat_note()
+  }
   invisible(x)
 }
 
@@ -2774,6 +3427,9 @@ summary.tseLCA_distal <- function(object, digits = 4, ...) {
   }
   cat("\nDistal outcome estimates by class:\n")
   .print_table(.distal_table(object, fam), digits = digits)
+  if (fam == "multinomial") {
+    .multinomial_caveat_note()
+  }
   invisible(object)
 }
 
@@ -2804,6 +3460,9 @@ summary.tseLCA_both <- function(object, digits = 4, ...) {
 
   cat("\nDistal outcome -- three-step estimates:\n")
   .print_table(.distal_table(object$distal, fam), digits = digits)
+  if (fam == "multinomial") {
+    .multinomial_caveat_note()
+  }
 
   invisible(object)
 }
@@ -2821,7 +3480,11 @@ summary.tseLCA_both <- function(object, digits = 4, ...) {
 #'   `"two_step"`.
 #' @param ... Further arguments (currently unused).
 #' @return The coefficient matrix (covariate models), named numeric vector
-#'   (distal models), or a named list of both (measurement or both models).
+#'   (distal models -- or, for `family = "multinomial"`, a `T x C` matrix of
+#'   category probabilities on the probability scale, not logit; see
+#'   [tseLCA::three_step()]'s `family` argument for the boundary/inference
+#'   caveat that comes with that), or a named list of both (measurement or
+#'   both models).
 #' @examples
 #' d    <- generate_data(100, "high", "covariate", seed = 1)
 #' fit_m <- three_step(d, paste0("Y", 1:6), n_classes = 3)
@@ -2937,7 +3600,10 @@ coef.tseLCA_both <- function(
 #'   `"parameterization"` is attached as a reminder. Returns `NULL`
 #'   invisibly if `fit0$mU` is not available. For structural models,
 #'   returns the Step-3 vcov matrix; the two-step vcov is only available
-#'   when `get.twostep.vcov = TRUE`.
+#'   when `get.twostep.vcov = TRUE`. For distal models with
+#'   `family = "multinomial"`, this is instead on the probability scale
+#'   (see [tseLCA::three_step()]'s `family` argument for the caveat that
+#'   comes with that).
 #' @examples
 #' d    <- generate_data(100, "high", "covariate", seed = 1)
 #' fit_m <- three_step(d, paste0("Y", 1:6), n_classes = 3)
@@ -3115,6 +3781,139 @@ vcov.tseLCA_both <- function(
     return(object$distal$three_step_vcov)
   }
   list(covariate = cov_vcov, distal = object$distal$three_step_vcov)
+}
+
+# -- omnibus test ----------------------------------------------------------------
+
+#' Build a between-class contrast matrix and run a generalized Wald test
+#'
+#' Tests \eqn{H_0: \theta_1 = \theta_2 = \dots = \theta_T}, where
+#' \eqn{\theta_t} is the length-\code{d} distal-outcome parameter vector for
+#' class \code{t} (\code{d = 1} for gaussian/poisson/binomial, \code{d = C}
+#' -- the number of categories -- for multinomial), against class 1 as the
+#' reference. \code{theta} and \code{V} must both use the column-major
+#' \code{(t, k)} ordering \code{three_step()} produces (\code{as.vector()}
+#' of a T x C matrix, or a plain length-T vector when \code{d = 1}): class
+#' index varying fastest within blocks of \code{d}. A Moore-Penrose
+#' pseudo-inverse (`pinv_rank()`) is used because the contrast covariance is
+#' singular for multinomial (see `pinv_rank()`'s docs); its rank is used as
+#' the chi-squared degrees of freedom, which for multinomial recovers the
+#' textbook \eqn{(T-1)(C-1)} df of a chi-squared test of homogeneity in a
+#' \eqn{T \times C} contingency table.
+#' @noRd
+wald_class_equality <- function(theta, V, iT) {
+  d <- length(theta) %/% iT
+  R <- matrix(0, (iT - 1L) * d, iT * d)
+  for (k in seq_len(d)) {
+    base_col <- (k - 1L) * iT
+    base_row <- (k - 1L) * (iT - 1L)
+    for (t in seq_len(iT - 1L)) {
+      R[base_row + t, base_col + 1L] <- -1
+      R[base_row + t, base_col + 1L + t] <- 1
+    }
+  }
+
+  Rtheta <- R %*% theta
+  RVR <- R %*% V %*% t(R)
+  pr <- pinv_rank(RVR)
+
+  statistic <- as.numeric(t(Rtheta) %*% pr$pinv %*% Rtheta)
+  df <- pr$rank
+  list(
+    statistic = statistic,
+    df = df,
+    p.value = pchisq(statistic, df, lower.tail = FALSE)
+  )
+}
+
+#' Omnibus Wald test of class equality for a distal outcome
+#'
+#' Tests whether the distal outcome distribution differs across latent
+#' classes at all -- \eqn{H_0: \theta_1 = \theta_2 = \dots = \theta_T} for
+#' the class-specific distal parameters \eqn{\theta_t} (class means for
+#' \code{family = "gaussian"}, log-rates for \code{"poisson"}, logits for
+#' \code{"binomial"}, or the full length-C category-probability vector for
+#' \code{"multinomial"}) -- using a generalized Wald test with
+#' \code{vcov()}. This answers whether the outcome's distribution is
+#' associated with class membership at all, before drilling into which
+#' classes differ (a natural next step -- not yet implemented in
+#' \pkg{tseLCA} -- is pairwise post-hoc comparisons with multiplicity
+#' correction). The degrees of freedom equal the rank of the contrast
+#' covariance (`T - 1` for scalar outcomes; `(T - 1) * (C - 1)` for
+#' multinomial, i.e. the textbook chi-squared test of homogeneity in a
+#' \eqn{T \times C} table), computed with a Moore-Penrose pseudo-inverse so
+#' the test remains valid despite \code{multinomial}'s inherently singular
+#' covariance (each class's category probabilities sum to 1).
+#'
+#' @param object A \code{tseLCA_distal} object, or a \code{tseLCA_both}
+#'   object (tests its \code{$distal} component).
+#' @param ... Unused; present for S3 method consistency.
+#'
+#' @return An object of class \code{"tseLCA_omnibus"}: a list with
+#'   \code{$statistic} (the Wald chi-squared statistic), \code{$df}, and
+#'   \code{$p.value}.
+#' @examples
+#' \donttest{
+#' d <- generate_data(300, "high", "distal", seed = 1)
+#' fit <- three_step(d, paste0("Y", 1:6), n_classes = 3,
+#'                   Zo.name = "Zo", use.simple.cov = TRUE)
+#' omnibus_test(fit)
+#' }
+#' @export
+omnibus_test <- function(object, ...) {
+  UseMethod("omnibus_test")
+}
+
+#' @rdname omnibus_test
+#' @export
+omnibus_test.tseLCA_distal <- function(object, ...) {
+  .omnibus_test_distal(object, object$n_classes, object$family)
+}
+
+#' @rdname omnibus_test
+#' @export
+omnibus_test.tseLCA_both <- function(object, ...) {
+  .omnibus_test_distal(object$distal, object$n_classes, object$family)
+}
+
+#' @noRd
+.omnibus_test_distal <- function(x, n_classes, family) {
+  theta <- as.vector(x$three_step)
+  V <- x$three_step_vcov
+  iT <- n_classes
+
+  test <- wald_class_equality(theta, V, iT)
+  result <- list(
+    statistic = test$statistic,
+    df = test$df,
+    p.value = test$p.value,
+    family = if (!is.null(family)) family else "gaussian",
+    n_classes = iT
+  )
+  class(result) <- "tseLCA_omnibus"
+  result
+}
+
+#' @rdname omnibus_test
+#' @param x A \code{tseLCA_omnibus} object.
+#' @param digits Integer. Number of decimal places for the test statistic.
+#' @export
+print.tseLCA_omnibus <- function(x, digits = 4, ...) {
+  cat("Omnibus Wald test of class equality (distal outcome)\n")
+  cat(sprintf("  Family: %s   Classes: %d\n", x$family, x$n_classes))
+  p_str <- if (x$p.value < 0.001) {
+    "< 0.001"
+  } else {
+    sprintf("%.4f", x$p.value)
+  }
+  cat(sprintf(
+    "  W(%d) = %.*f, p %s\n",
+    x$df,
+    digits,
+    x$statistic,
+    if (startsWith(p_str, "<")) p_str else paste0("= ", p_str)
+  ))
+  invisible(x)
 }
 
 # -- plot methods --------------------------------------------------------------

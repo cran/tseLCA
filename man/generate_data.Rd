@@ -20,8 +20,8 @@ Maps to pi = 0.70, 0.80, 0.90 respectively.}
 
 \item{scenario}{Character. One of:
 \describe{
-\item{\code{"covariate"}}{Zp (discrete, 1-5) predicts latent X via multinomial logit.}
-\item{\code{"distal"}}{Latent X predicts continuous Zo via linear regression.}
+\item{\code{"covariate"}}{Zp (discrete, 1-5) predicts latent X with multinomial logit.}
+\item{\code{"distal"}}{Latent X predicts continuous Zo with linear regression.}
 }}
 
 \item{params}{List of population parameters.  Defaults to \link{bk2018_params}.}

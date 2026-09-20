@@ -69,7 +69,7 @@ listwise deletion on covariates.}
 }
 \description{
 Fixes \code{mPhi} at \code{fit0$mPhi} and estimates multinomial logit coefficients
-\code{mGamma} (Q x (T-1)) via an EM algorithm with a BFGS M-step.
+\code{mGamma} (Q x (T-1)) with an EM algorithm using a BFGS M-step.
 }
 \examples{
 \donttest{

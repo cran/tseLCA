@@ -39,16 +39,16 @@
 #'     or both. Handles Steps 1--3 in a single call, with optional pre-fitted
 #'     Step-1 input through \code{step1}.}
 #'   \item{\code{\link{lca_step1}}}{Standalone Step-1 measurement model
-#'     estimation via \pkg{multilevLCA}. Returns a reusable fit object that
+#'     estimation with \pkg{multilevLCA}. Returns a reusable fit object that
 #'     can be passed to \code{three_step()} to avoid re-estimating the
 #'     measurement model across multiple structural specifications.}
 #'   \item{\code{\link{fitZ_from_fit0}}}{Two-step covariate estimation by
 #'     fixing measurement parameters at their Step-1 values and estimating
 #'     multinomial logit coefficients \eqn{\gamma} with an EM algorithm. Returns starting
-#'     values for Step 3. Custom starting values can be supplied via
+#'     values for Step 3. Custom starting values can be supplied with
 #'     \code{starting_val}.}
 #'   \item{\code{\link{fitZ_from_multiLCA}}}{Two-step covariate estimation
-#'     via \code{multiLCA(fixedpars = 1)}, returning \pkg{multilevLCA}'s
+#'     with \code{multiLCA(fixedpars = 1)}, returning \pkg{multilevLCA}'s
 #'     bias-corrected standard errors. Called automatically when
 #'     \code{get.twostep.vcov = TRUE} in \code{\link{three_step}}.}
 #'   \item{\code{\link{generate_data}}}{Simulate data replicating the Bakk &
@@ -100,15 +100,15 @@
 #' \itemize{
 #'   \item Binary and polytomous indicators, following \pkg{multilevLCA}
 #'     coding conventions.
-#'   \item Gaussian, Poisson, and binomial distal outcome families.
+#'   \item Gaussian, Poisson, binomial, and multinomial distal outcome families.
 #'   \item Full-information maximum likelihood (FIML) for partially observed
 #'     indicator patterns (\code{incomplete = TRUE}). Step 3 always performs
 #'     listwise deletion on missing covariates or distal outcomes.
 #'   \item Flexible measurement and structural samples: fit the measurement
 #'     model on a reference sample and apply it to a different analysis sample
-#'     via the \code{step1} argument.
+#'     with the \code{step1} argument.
 #'   \item Arbitrary reference class for the multinomial logit parameterization
-#'     via the \code{rebase} argument. Log-likelihoods are invariant to this
+#'     with the \code{rebase} argument. Log-likelihoods are invariant to this
 #'     choice.
 #'   \item Joint covariate and distal outcome estimation (\code{Zp.names} and
 #'     \code{Zo.name} supplied together). The covariate model is estimated

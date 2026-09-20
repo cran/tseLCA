@@ -20,6 +20,8 @@ lca_step1(
   maxIter.fitZ = 200L,
   include.intercept = TRUE,
   rebase = "C1",
+  startval = NULL,
+  n_init = NULL,
   verbose = FALSE
 )
 }
@@ -58,6 +60,30 @@ Use \code{"C1"}, \code{"C2"}, etc. or an integer index. Default \code{"C1"}. The
 measurement model is permuted so this class becomes column 1, making it
 the reference for all downstream multinomial logit parameterizations.}
 
+\item{startval}{Optional starting classification for the Step-1
+measurement model: either an integer vector of length \code{nrow(data)}
+(\verb{1..n_classes} per row) or a numeric matrix of conditional
+item-response probabilities from which a classification is derived. See
+\code{\link[=lca_step1_startval]{lca_step1_startval()}} for the full description of both forms. When
+supplied, \code{lca_step1()} fits the measurement model with
+\code{\link[=lca_step1_startval]{lca_step1_startval()}} instead of multilevLCA's default
+k-means-on-principal-components initialization, and \code{estimate.one.step},
+\code{iter.measurement}, and \code{R2.threshold} (which govern the default
+restart-on-low-entropy behavior) are ignored. Mutually exclusive with
+\code{n_init}. Default \code{NULL}.}
+
+\item{n_init}{Optional positive integer. If supplied, fits the
+measurement model \code{n_init} times from independent uniform-random
+classifications (each through \code{startval}-style injection with
+\code{kmea = FALSE}, not multilevLCA's k-means-on-PCA path) and keeps the
+fit with the highest log-likelihood -- the unconditional multi-start
+analog of \code{n_init} in \pkg{StepMix} or \code{nrep} in \pkg{poLCA}. Unlike
+\code{iter.measurement} (which reruns multilevLCA's own k-means
+initialization, and only when entropy R\eqn{^2} is low), all \code{n_init}
+fits are always run. \code{estimate.one.step}, \code{iter.measurement}, and
+\code{R2.threshold} are ignored when \code{n_init} is supplied. Mutually exclusive
+with \code{startval}. Default \code{NULL}.}
+
 \item{verbose}{Logical. Print progress messages. Default \code{FALSE}.}
 }
 \value{
@@ -82,5 +108,10 @@ s1$fit0$mPhi   # item-response probabilities
 s1z <- lca_step1(d, Y.names = paste0("Y", 1:6), n_classes = 3,
                  Zp.names = "Zp", use.two.step = TRUE, verbose = TRUE)
 s1z$fitZ$mGamma   # two-step gamma estimates
+
+# Many random-classification restarts, keeping the best (analogous to
+# n_init in StepMix or nrep in poLCA)
+s1r <- lca_step1(d, Y.names = paste0("Y", 1:6), n_classes = 3,
+                 n_init = 20L, verbose = TRUE)
 }
 }

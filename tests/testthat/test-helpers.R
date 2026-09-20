@@ -71,7 +71,7 @@ test_that("log_lik_matrix returns correct dimensions and non-positive values", {
 })
 
 test_that("log_lik_matrix with mDesign reduces log-likelihood", {
-  # When we zero out a column via mDesign, that item no longer contributes
+  # When we zero out a column with mDesign, that item no longer contributes
   # to the log-likelihood. With 4 columns and mDesign=0 on columns 3-4,
   # the result equals log_lik_matrix on only the first 2 columns.
   N <- 4L

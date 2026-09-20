@@ -22,7 +22,7 @@ This involves:
 \enumerate{
 \item Rebasing \verb{$mGamma}: reconstructing the full T-column log-ratio
 matrix, subtracting the new reference column, and dropping it.
-\item Propagating through \verb{$Varmat_cor} via the delta method: the
+\item Propagating through \verb{$Varmat_cor} with the delta method: the
 rebasing transformation is linear (\code{gamma_new = A * gamma_old})
 so the vcov transforms exactly as \code{A \%*\% V \%*\% t(A)}.
 \item Updating all column names.

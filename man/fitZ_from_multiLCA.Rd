@@ -2,7 +2,7 @@
 % Please edit documentation in R/lca_measurement.R
 \name{fitZ_from_multiLCA}
 \alias{fitZ_from_multiLCA}
-\title{Estimate two-step covariate model via multilevLCA (optional reference path)}
+\title{Estimate two-step covariate model with multilevLCA (optional reference path)}
 \usage{
 fitZ_from_multiLCA(
   data,
@@ -16,6 +16,8 @@ fitZ_from_multiLCA(
   R2.threshold,
   incomplete = FALSE,
   rebase = "C1",
+  startval = NULL,
+  n_init = NULL,
   verbose = FALSE
 )
 }
@@ -45,6 +47,22 @@ Default \code{FALSE}.}
 \item{rebase}{Character or integer. Reference class for column naming of
 \verb{$mGamma}. Must match the \code{rebase} used in \code{\link[=three_step]{three_step()}} so
 coefficient labels are consistent. Default \code{"C1"}.}
+
+\item{startval}{Optional starting classification for the measurement
+portion of this \code{multiLCA(fixedpars = 1)} fit -- an integer vector or a
+conditional item-response probability matrix, as described in
+\code{\link[=lca_step1_startval]{lca_step1_startval()}} -- e.g. the same value passed to \code{\link[=lca_step1]{lca_step1()}}
+for the primary Step-1 fit. When supplied, \code{kmea = FALSE} is used and
+\code{iter.measurement}/\code{R2.threshold} restarts are skipped, for the same
+reasons as in \code{\link[=lca_step1_startval]{lca_step1_startval()}}. Mutually exclusive with \code{n_init}.
+Default \code{NULL}.}
+
+\item{n_init}{Optional positive integer. If supplied, fits this
+\code{multiLCA(fixedpars = 1)} model \code{n_init} times from independent
+uniform-random classifications (\code{kmea = FALSE}) and keeps the fit with
+the highest log-likelihood, as in \code{\link[=lca_step1]{lca_step1()}}'s \code{n_init} argument.
+\code{iter.measurement}/\code{R2.threshold} restarts are skipped. Mutually
+exclusive with \code{startval}. Default \code{NULL}.}
 
 \item{verbose}{Logical.}
 }
@@ -77,7 +95,7 @@ multilevLCA's corrected standard errors for the two-step gamma estimates.
 \donttest{
 d <- generate_data(200, "high", "covariate", seed = 1)
 
-# Two-step estimation via multiLCA (fixedpars = 1)
+# Two-step estimation with multiLCA (fixedpars = 1)
 fZ_ml <- fitZ_from_multiLCA(
   data                = d,
   Y.names             = paste0("Y", 1:6),
