@@ -182,6 +182,6 @@ Useful links:
 
 }
 \author{
-Sam Lee \email{samlee@arizona.edu}
+Sam Lee \email{samlee@arizona.edu}, Jay Goodliffe \email{goodliffe@byu.edu}
 }
 \keyword{internal}

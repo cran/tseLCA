@@ -1,3 +1,9 @@
+# tseLCA 1.1.1
+
+- Corrected Jay Goodliffe's role in `Authors@R` from contributor (`"ctb"`) to
+  author and copyright holder (`c("aut", "cph")`), reflecting his contribution
+  to the package. No code changes.
+
 # tseLCA 1.1.0
 
 ## Externally supplied Step-1 starting values

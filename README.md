@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![CRAN status](https://www.r-pkg.org/badges/version/tseLCA)](https://CRAN.R-project.org/package=tseLCA)
 
 <!-- badges: end -->
 
@@ -30,7 +30,8 @@ Unlike conventional latent class software that uses a one-step estimation approa
 
 -   Continuous outcomes (Gaussian)
 -   Count outcomes (Poisson)
--   Binary outcomes (Bernoulli).
+-   Binary outcomes (Bernoulli)
+-   Nominal categorical outcomes (multinomial).
 
 ### Automated Model Optimization
 

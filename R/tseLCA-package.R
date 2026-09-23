@@ -153,7 +153,7 @@
 #' three-step approaches. \emph{Political Analysis}, 18(4), 450--469.
 #' \doi{10.1093/pan/mpq025}
 #'
-#' @author Sam Lee \email{samlee@@arizona.edu}
+#' @author Sam Lee \email{samlee@@arizona.edu}, Jay Goodliffe \email{goodliffe@@byu.edu}
 #'
 #' @keywords internal
 "_PACKAGE"
