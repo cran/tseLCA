@@ -11,7 +11,9 @@ clean_data(
   Zo.name = NULL,
   incomplete = FALSE,
   include.intercept = TRUE,
-  verbose = FALSE
+  verbose = FALSE,
+  Zp.formula = NULL,
+  Y.levels = NULL
 )
 }
 \arguments{
@@ -19,27 +21,43 @@ clean_data(
 
 \item{Y.names}{Character vector of item column names.}
 
-\item{Zp.names}{Character vector of covariate column names, or \code{NULL}.}
+\item{Zp.names}{Character vector of covariate column names, or \code{NULL}.
+Ignored when \code{Zp.formula} is given.}
 
 \item{Zo.name}{Single distal outcome column name, or \code{NULL}.}
 
 \item{incomplete}{Logical. If \code{TRUE}, use FIML for partially-observed Y.}
 
-\item{include.intercept}{Logical. Prepend intercept column to Z.}
+\item{include.intercept}{Logical. Include an intercept in the covariate
+design built from \code{Zp.names}.}
 
 \item{verbose}{Logical. Print row-drop messages.}
+
+\item{Zp.formula}{One-sided formula for the covariate design (e.g.
+\code{~ age + factor(region)}), or \code{NULL} to build one from \code{Zp.names}.}
+
+\item{Y.levels}{Named list of indicator categories, as returned by
+\code{.recode_indicators()}, when \code{data} already holds 0-based codes; \code{NULL}
+recodes the indicators here.}
 }
 \value{
 A named list with:
 \describe{
 \item{Y.obs}{N_Y x K expanded one-hot indicator matrix for Steps 1 & 2.}
-\item{mDesign}{N_Y x K design/mask matrix (all 1s when incomplete = FALSE).}
+\item{mDesign}{N_Y x K design/mask matrix (NULL when incomplete = FALSE).}
 \item{ivItemcat}{Integer vector of category counts per item.}
-\item{keep_Y}{Integer indices of rows kept for Steps 1 & 2 (into original N).}
-\item{Z_mat}{N_Z x Q covariate design matrix, or NULL.}
+\item{Y.levels}{Named list of the categories of each item.}
+\item{keep_Y}{Integer indices of rows kept for Steps 1 & 2 (into original n).}
+\item{Z_mat}{n_Z x (Q+1) covariate design matrix, or NULL.}
+\item{Zp.formula, Z_terms, Z_xlevels}{The covariate formula, its terms,
+and the factor levels used, or NULL.}
 \item{keep_step3_Z_in_Y}{Positions of Z-complete rows within keep_Y.}
 \item{Zo_mat}{N_Zo x 1 distal outcome matrix, or NULL.}
 \item{keep_step3_Zo_in_Y}{Positions of Zo-complete rows within keep_Y.}
+\item{keep_step3_Zo}{Indices of Zo-complete rows (into original n).}
+\item{keep_step3_Zo_in_Z}{With covariates, positions of the distal rows
+within the covariate rows (distal rows then also need complete
+covariates); otherwise NULL.}
 }
 }
 \description{

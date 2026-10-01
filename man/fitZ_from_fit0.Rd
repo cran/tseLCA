@@ -15,7 +15,9 @@ fitZ_from_fit0(
   include.intercept = TRUE,
   rebase = "C1",
   starting_val = NULL,
-  verbose = FALSE
+  verbose = FALSE,
+  Y.levels = NULL,
+  Zp.formula = NULL
 )
 }
 \arguments{
@@ -41,15 +43,22 @@ parameterization (e.g. \code{"C1"}, \code{"C2"}, or an integer). Default \code{"
 Must match the \code{rebase} used in \code{lca_step1()} so class column ordering
 is consistent.}
 
-\item{starting_val}{Optional Q x (T-1) starting value matrix for \code{mGamma}.}
+\item{starting_val}{Optional (Q+1) x (T-1) starting value matrix for \code{mGamma}.}
 
 \item{verbose}{Logical. Print convergence messages. Default \code{FALSE}.}
+
+\item{Y.levels}{Optional named list of indicator categories when \code{data}
+holds 0-based codes (as stored with a fitted measurement model); \code{NULL}
+derives them from \code{data}.}
+
+\item{Zp.formula}{Optional one-sided formula for the covariate design; it
+replaces \code{Zp.names} and \code{include.intercept}.}
 }
 \value{
 A list with the following elements:
 \describe{
-\item{\code{mGamma}}{Q x (T-1) numeric matrix of multinomial logit
-coefficients, where Q is the number of columns in the covariate design
+\item{\code{mGamma}}{(Q+1) x (T-1) numeric matrix of multinomial logit
+coefficients, where Q + 1 is the number of columns in the covariate design
 matrix (including intercept if \code{include.intercept = TRUE}). Rows are
 named by covariate, columns by non-reference class (e.g. \code{"C2"},
 \code{"C3"}).}
@@ -71,6 +80,12 @@ listwise deletion on covariates.}
 Fixes \code{mPhi} at \code{fit0$mPhi} and estimates multinomial logit coefficients
 \code{mGamma} (Q x (T-1)) with an EM algorithm using a BFGS M-step.
 }
+\section{Deprecated}{
+
+Deprecated as of tseLCA 2.0.0: use \code{\link[=tse_twostep]{tse_twostep()}}. It keeps
+working and warns once per session when called directly.
+}
+
 \examples{
 \donttest{
 d  <- generate_data(200, "high", "covariate", seed = 1)
@@ -84,7 +99,7 @@ fZ <- fitZ_from_fit0(
   Zp.names = "Zp",
   verbose  = TRUE
 )
-fZ$mGamma   # Q x (T-1) coefficient matrix
+fZ$mGamma   # (Q+1) x (T-1) coefficient matrix
 fZ$converged
 }
 }

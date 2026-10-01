@@ -2,145 +2,86 @@
 % Please edit documentation in R/tseLCA-package.R
 \docType{package}
 \name{tseLCA-package}
-\alias{tseLCA}
 \alias{tseLCA-package}
 \title{tseLCA: Three-Step Estimation for Latent Class Analysis}
 \description{
-\pkg{tseLCA} implements bias-adjusted three-step estimators for structural
-latent class models with covariates and distal outcomes. Building on the
-efficient measurement-model estimation in \pkg{multilevLCA} (Lyrvall et al.,
-2025), \pkg{tseLCA} adds modern three-step estimators, classification-error
-corrections, and analytic sandwich variance estimation that propagates
-measurement uncertainty from the latent class measurement stage through to
-the final structural parameter estimates.
-
-In contrast to one-step approaches such as \pkg{poLCA}, where including
-covariates may alter the underlying latent class definitions, three-step
-methods fix the measurement model before estimating structural relationships
-and adjust for classification error at the final stage. \pkg{tseLCA} also
-allows the measurement and structural models to be estimated on different
-datasets, enabling researchers to calibrate a measurement model on a large
-reference sample and apply it to a separate analysis sample.
+\pkg{tseLCA} relates latent classes to covariates and distal outcomes by
+bias-adjusted three-step estimation. The latent class measurement model is
+estimated first and held fixed, so the structural variables cannot change
+the meaning of the classes; the structural estimates are corrected for the
+classification error of the class assignments (BCH and ML estimators), and
+their standard errors account for the uncertainty of the measurement model.
+Measurement models are estimated with \pkg{multilevLCA} (Lyrvall et al.,
+2025).
 }
-\section{The three-step approach}{
+\section{The three steps}{
 
 \enumerate{
-\item \strong{Measurement model}: estimate class-conditional
-item-response probabilities \eqn{\phi} and class prevalences \eqn{\pi}
-using \pkg{multilevLCA} (Lyrvall et al., 2025 ).
-\item \strong{Classification-error matrix}: assign posterior class
-probabilities and compute the T x T misclassification matrix
-\eqn{P(W = s \mid X = t)}, with standard errors corrected for
-classification-error propagation (Bakk, Oberski & Vermunt, 2014).
-\item \strong{Structural model}: estimate covariate effects using
-two-step starting values (Bakk & Kuha, 2018) and/or distal outcome (Bakk, Tekle & Vermunt)
-means with either the ML correction (Vermunt, 2010) or the BCH
-correction (Bolck, Croon & Hagenaars, 2004).
+\item \strong{Measurement model} (\code{\link[=tse_lca]{tse_lca()}}): class sizes and
+class-conditional item-response probabilities, estimated from the
+indicators alone. With several numbers of classes, a class-enumeration
+table (AIC, BIC, SABIC, entropy) for choosing the number of classes.
+\item \strong{Classification} (\code{\link[=tse_classify]{tse_classify()}}): posterior class
+probabilities, modal or proportional class assignments, and the
+classification-error probabilities \eqn{P(W = s \mid X = t)}.
+\item \strong{Structural model}: a multinomial logit of class membership
+on covariates (\code{\link[=tse_covariate]{tse_covariate()}}), and/or class-specific distributions
+of a distal outcome (\code{\link[=tse_distal]{tse_distal()}}), with the ML (Vermunt 2010; Bakk,
+Tekle & Vermunt 2013) or BCH (Bolck, Croon & Hagenaars 2004) correction.
 }
-}
-
-\section{Main functions}{
-
-\describe{
-\item{\code{\link{three_step}}}{Full three-step estimation pipeline.
-Accepts covariates (\code{Zp.names}), distal outcomes (\code{Zo.name}),
-or both. Handles Steps 1--3 in a single call, with optional pre-fitted
-Step-1 input through \code{step1}.}
-\item{\code{\link{lca_step1}}}{Standalone Step-1 measurement model
-estimation with \pkg{multilevLCA}. Returns a reusable fit object that
-can be passed to \code{three_step()} to avoid re-estimating the
-measurement model across multiple structural specifications.}
-\item{\code{\link{fitZ_from_fit0}}}{Two-step covariate estimation by
-fixing measurement parameters at their Step-1 values and estimating
-multinomial logit coefficients \eqn{\gamma} with an EM algorithm. Returns starting
-values for Step 3. Custom starting values can be supplied with
-\code{starting_val}.}
-\item{\code{\link{fitZ_from_multiLCA}}}{Two-step covariate estimation
-with \code{multiLCA(fixedpars = 1)}, returning \pkg{multilevLCA}'s
-bias-corrected standard errors. Called automatically when
-\code{get.twostep.vcov = TRUE} in \code{\link{three_step}}.}
-\item{\code{\link{generate_data}}}{Simulate data replicating the Bakk &
-Kuha (2018) three-class design: six binary indicators across three
-separation levels (\code{"low"}, \code{"medium"}, \code{"high"}) and
-two scenarios (\code{"covariate"} or \code{"distal"}).}
-}
+\code{\link[=tseLCA]{tseLCA()}} runs all three steps from one formula,
+\verb{indicators ~ covariates | distal outcome}; \code{\link[=measurement]{measurement()}},
+\code{\link[=classification]{classification()}}, \code{\link[=covariate]{covariate()}}, and \code{\link[=distal]{distal()}} extract the components of
+a fitted model.
 }
 
-\section{Estimators}{
+\section{Estimators and standard errors}{
 
 \describe{
-\item{ML (default, \code{use.bch = FALSE})}{The Vermunt (2010) ML
-correction uses a weighted pseudo-likelihood with the misclassification
-matrix as a bias adjustment. Preferred when class separation is low or
-moderate.}
-\item{BCH (\code{use.bch = TRUE})}{The Bolck, Croon & Hagenaars (2004)
-correction inverts the misclassification matrix to obtain direct class
-weights. Works well under high separation but may produce an
-ill-conditioned Hessian (non-positive semi-definite covariance matrix)
-when separation is low; use the ML estimator in that case.}
+\item{\code{method = "ML"} (default)}{Vermunt's (2010) maximum likelihood
+correction, treating the assigned class as an indicator of the true
+class with known classification-error probabilities.}
+\item{\code{method = "BCH"}}{The Bolck-Croon-Hagenaars correction, reweighting
+the assignments by the inverse classification-error matrix. Reliable
+when classes are well separated.}
+\item{\code{method = "none"}}{The uncorrected three-step estimator, for
+comparison.}
+\item{\code{se = "corrected"} (default)}{Sandwich standard errors plus the
+propagated uncertainty of the Step-1 measurement model (Bakk, Oberski &
+Vermunt 2014), and, for combined models, of the covariate model.}
+\item{\code{se = "robust"}}{Sandwich standard errors of Step 3 only.}
 }
-}
-
-\section{Variance estimation}{
-
-\describe{
-\item{Full correction (\code{use.simple.cov = FALSE}, default)}{Analytic
-propagation of Step-1 measurement uncertainty through the
-classification-error correction, following Bakk, Oberski & Vermunt
-(2014). Uses soft (proportional) posteriors for the Jacobian
-\eqn{\partial\theta_2/\partial\theta_1} regardless of
-\code{use.modal.assignment}. Recommended when separation is moderate
-or low.}
-\item{Simple/robust (\code{use.simple.cov = TRUE})}{Sandwich SEs from
-Step 3 only, ignoring measurement uncertainty. A useful computational
-shortcut when separation is high and the correction is negligible.}
-}
+The two-step estimator of Bakk & Kuha (2018) is available with
+\code{\link[=tse_twostep]{tse_twostep()}}.
 }
 
-\section{Class assignment}{
-
-\describe{
-\item{Modal (\code{use.modal.assignment = TRUE}, default)}{Each
-observation is assigned to its most probable class (hard assignment).
-The Jacobian for variance correction is still computed from soft
-posteriors.}
-\item{Proportional (\code{use.modal.assignment = FALSE})}{Soft posterior
-weights are used throughout Steps 2 and 3. Recommended when separation
-is moderate or low, and required for a mathematically well-defined
-analytic Jacobian.}
-}
-}
-
-\section{Supported features}{
+\section{Features}{
 
 \itemize{
-\item Binary and polytomous indicators, following \pkg{multilevLCA}
-coding conventions.
-\item Gaussian, Poisson, binomial, and multinomial distal outcome families.
-\item Full-information maximum likelihood (FIML) for partially observed
-indicator patterns (\code{incomplete = TRUE}). Step 3 always performs
-listwise deletion on missing covariates or distal outcomes.
-\item Flexible measurement and structural samples: fit the measurement
-model on a reference sample and apply it to a different analysis sample
-with the \code{step1} argument.
-\item Arbitrary reference class for the multinomial logit parameterization
-with the \code{rebase} argument. Log-likelihoods are invariant to this
-choice.
-\item Joint covariate and distal outcome estimation (\code{Zp.names} and
-\code{Zo.name} supplied together). The covariate model is estimated
-first; covariate-adjusted posteriors are then used as priors in the
-distal outcome step.
-\item S3 methods (\code{print}, \code{summary}, \code{coef}, \code{vcov},
-\code{plot}) for all four return subclasses: \code{tseLCA_measurement},
-\code{tseLCA_covariate}, \code{tseLCA_distal}, \code{tseLCA_both}.
+\item Binary and polytomous indicators, coded as factors, logicals,
+characters, or numbers; full-information maximum likelihood for missing
+indicator values (\code{missing = "fiml"}).
+\item Covariate formulas with factors, interactions, and transformations;
+Wald tests by term (\code{\link[=anova.tseLCA_covariate]{anova.tseLCA_covariate()}}); predicted class
+probabilities (\code{\link[=predict.tseLCA_covariate]{predict.tseLCA_covariate()}}); any reference class.
+\item Gaussian, Poisson, binomial, and multinomial distal outcomes, with an
+omnibus test of equality across classes (\code{\link[=omnibus_test]{omnibus_test()}}).
+\item Measurement models estimated on one sample and applied to another
+(\code{\link[=tse_classify]{tse_classify()}} with \code{newdata}).
+\item Standard methods for fitted models: \code{print()}, \code{summary()},
+\code{coef()}, \code{vcov()}, \code{confint()}, \code{logLik()}, \code{AIC()}, \code{BIC()},
+\code{nobs()}, \code{predict()}, \code{plot()}, and \code{update()}.
+\item Simulation from the design of Bakk & Kuha (2018)
+(\code{\link[=generate_data]{generate_data()}}).
 }
+The 1.x function \code{\link[=three_step]{three_step()}} is deprecated; its help page maps each of
+its arguments to the current interface.
 }
 
 \section{Getting started}{
 
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Introductory vignette
-vignette("tseLCA-workflow", package = "tseLCA")
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{vignette("tseLCA-workflow", package = "tseLCA")
 }\if{html}{\out{</div>}}
 }
 

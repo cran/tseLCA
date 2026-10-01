@@ -33,7 +33,7 @@ many random starts (e.g. the modal class from many-random-start
 posterior probabilities, as in \pkg{StepMix} or \pkg{poLCA}).}
 \item{A numeric matrix}{A conditional item-response probability
 matrix \eqn{P(Y_h = k \mid X = t)} with one row per (item, category)
-pair -- items in \code{Y.names} order, categories \code{0..K_h-1}
+pair -- items in \code{Y.names} order, categories \code{0..R_k-1}
 within each item, matching the column order of
 \code{expand_Y(data[, Y.names], ivItemcat)} -- and one column per
 class. A per-row classification is derived internally by
@@ -48,7 +48,7 @@ value (contrast \code{\link{lca_step1}()}'s
 \code{iter.measurement}/\code{R2.threshold} restart logic, which applies
 only to multilevLCA's own k-means initialization, and its \code{n_init}
 argument, which does run unconditional random restarts but from
-independent random classifications rather than a single fixed one).}
+independent random classifications, not a single fixed one).}
 
 \item{maxIter.measurement}{Maximum EM iterations before giving up on
 convergence. Default \code{5000L}.}
@@ -76,30 +76,36 @@ same shape as \code{\link{lca_step1}()}'s return value, and matches
 A thin wrapper around \pkg{multilevLCA}'s deterministic initialization
 path. \code{multilevLCA::multiLCA()}'s default Step-1 initialization
 (k-means on principal components) is deterministic given the data and, on
-some datasets, converges to a local rather than global optimum of the
+some datasets, converges to a local optimum of the
 Step-1 log-likelihood. If you have already found a better solution with
 an external solver run with many random starts (e.g. \pkg{StepMix},
 \pkg{poLCA}, or similar), this function lets you inject that
 classification directly: it writes \code{startval} into a temporary
 column of \code{data} and calls \code{multiLCA(..., startval = <that
-column>, kmea = FALSE)}, which skips k-means entirely and initializes the
-EM algorithm from the supplied classification instead.
+column>, kmea = FALSE)}, which skips k-means and initializes the
+EM algorithm from the supplied classification.
 }
 \details{
 Most users should not need to call this function directly. Pass
 \code{startval} to \code{\link{three_step}()} (for structural estimation)
-or \code{\link{lca_step1}()} (for a measurement-only fit) instead --
+or \code{\link{lca_step1}()} (for a measurement-only fit) --
 both implement the same mechanism and return the fitted measurement
 model as \code{$measurement_model$fit0} / \code{$fit0} respectively. This
 function is documented mainly to describe what \code{startval} accepts and
 how it is used internally.
 }
+\section{Deprecated}{
+
+Deprecated as of tseLCA 2.0.0: use \code{\link[=tse_lca]{tse_lca()}}. It keeps
+working and warns once per session when called directly.
+}
+
 \examples{
 \donttest{
 d <- generate_data(200, "high", "covariate", seed = 1)
 
 # Recommended: pass `startval` to three_step() (or lca_step1() for a
-# measurement-only fit) rather than calling this function directly --
+# measurement-only fit); do not call this function directly --
 # both use this same mechanism internally.
 
 # A starting classification from an external solver (here, the DGP's own

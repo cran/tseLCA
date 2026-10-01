@@ -66,7 +66,7 @@ measurement model: either an integer vector of length \code{nrow(data)}
 item-response probabilities from which a classification is derived. See
 \code{\link[=lca_step1_startval]{lca_step1_startval()}} for the full description of both forms. When
 supplied, \code{lca_step1()} fits the measurement model with
-\code{\link[=lca_step1_startval]{lca_step1_startval()}} instead of multilevLCA's default
+\code{\link[=lca_step1_startval]{lca_step1_startval()}}, not multilevLCA's default
 k-means-on-principal-components initialization, and \code{estimate.one.step},
 \code{iter.measurement}, and \code{R2.threshold} (which govern the default
 restart-on-low-entropy behavior) are ignored. Mutually exclusive with
@@ -95,6 +95,12 @@ Estimates the latent class measurement model with \pkg{multilevLCA} and
 optionally, fixes \code{mPhi} and estimates covariate effects (two-step
 initialization) with \code{fitZ_from_fit0()}.
 }
+\section{Deprecated}{
+
+Deprecated as of tseLCA 2.0.0: use \code{\link[=tse_lca]{tse_lca()}}. It keeps
+working and warns once per session when called directly.
+}
+
 \examples{
 \donttest{
 d <- generate_data(200, "high", "covariate", seed = 1)

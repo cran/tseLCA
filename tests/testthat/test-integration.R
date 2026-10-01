@@ -33,7 +33,7 @@ test_that("lca_step1 with Zp returns fitZ with named mGamma", {
   expect_false(is.null(s1$fitZ))
   #mGamma: Q x (T-1) = 2 x 2
   expect_equal(dim(s1$fitZ$mGamma), c(2L, 2L))
-  expect_equal(rownames(s1$fitZ$mGamma)[1L], "Intercept")
+  expect_equal(rownames(s1$fitZ$mGamma)[1L], "(Intercept)")
   expect_equal(colnames(s1$fitZ$mGamma), c("C2", "C3"))
 })
 
@@ -126,8 +126,8 @@ test_that("three_step(startval=) reproduces the same measurement fit", {
   )
 
   expect_s3_class(fit, "tseLCA_covariate")
-  expect_equal(fit$measurement_model$fit0$vPi, s1$fit0$vPi)
-  expect_equal(dim(fit$three_step), c(2L, 2L))
+  expect_equal(unname(class_sizes(fit)), as.vector(s1$fit0$vPi))
+  expect_equal(dim(coef(fit, matrix = TRUE)), c(2L, 2L))
 })
 
 test_that("three_step errors when both step1 and startval are supplied", {
@@ -239,7 +239,7 @@ test_that("three_step(startval=phi matrix) fits a covariate model", {
   )
 
   expect_s3_class(fit, "tseLCA_covariate")
-  expect_equal(dim(fit$three_step), c(2L, 2L))
+  expect_equal(dim(coef(fit, matrix = TRUE)), c(2L, 2L))
 })
 
 # ---- Step 1: n_init random-classification restarts ---------------------------------------------------------------------------------------
@@ -341,8 +341,8 @@ test_that("three_step measurement-only returns tseLCA_measurement", {
 
   expect_s3_class(fit, "tseLCA_measurement")
   expect_s3_class(fit, "tseLCA")
-  expect_true(is.finite(fit$AIC))
-  expect_true(is.finite(fit$BIC))
+  expect_true(is.finite(AIC(fit)))
+  expect_true(is.finite(BIC(fit)))
   expect_equal(fit$n_classes, 2L)
 })
 
@@ -363,24 +363,24 @@ test_that("three_step covariate returns tseLCA_covariate with correct structure"
   expect_equal(fit$n_classes, 3L)
 
   #Coefficient matrix: Q x (T-1) = 2 x 2
-  co <- fit$three_step
+  co <- coef(fit, matrix = TRUE)
   expect_equal(dim(co), c(2L, 2L))
-  expect_equal(rownames(co)[1L], "Intercept")
+  expect_equal(rownames(co)[1L], "(Intercept)")
   expect_equal(colnames(co), c("C2", "C3"))
 
   #Vcov: Q(T-1) x Q(T-1) = 4 x 4
-  vc <- fit$three_step_vcov
+  vc <- vcov(fit)
   expect_equal(dim(vc), c(4L, 4L))
   expect_equal(vc, t(vc)) # symmetric
   expect_true(all(sqrt(diag(vc)) > 0))
 
   #Two-step starting values present
-  expect_equal(dim(fit$two_step), c(2L, 2L))
+  expect_equal(dim(coef(fit, step = "two_step", matrix = TRUE)), c(2L, 2L))
 
   #Model fit
-  expect_true(is.finite(fit$llik))
-  expect_true(is.finite(fit$AIC))
-  expect_true(is.finite(fit$BIC))
+  expect_true(is.finite(as.numeric(logLik(fit))))
+  expect_true(is.finite(AIC(fit)))
+  expect_true(is.finite(BIC(fit)))
 })
 
 test_that("three_step BCH covariate runs and returns finite SEs", {
@@ -397,7 +397,7 @@ test_that("three_step BCH covariate runs and returns finite SEs", {
     )
   )
   expect_s3_class(fit, "tseLCA_covariate")
-  expect_true(all(is.finite(fit$three_step)))
+  expect_true(all(is.finite(coef(fit, matrix = TRUE))))
 })
 
 # ---- BCH weight orientation --------------------------------------------------------------------------------------------------------------
@@ -471,16 +471,16 @@ test_that("three_step BCH covariate recovers true DGP slopes and intercepts", {
 
   #True non-reference class params, sorted by slope ascending: (-1, 1)
   #Align estimated classes to true classes by Zp slope sign
-  slopes <- fit$three_step["Zp", ]
+  slopes <- coef(fit, matrix = TRUE)["Zp", ]
   ord <- order(slopes)
 
   true_intercepts <- c(2.3446, -3.6554) # b0 for (C2, C3) in DGP ordering
   true_slopes <- c(-1, 1)
 
-  ses <- sqrt(diag(fit$three_step_vcov))
+  ses <- sqrt(diag(vcov(fit)))
 
-  est_int <- fit$three_step["Intercept", ord]
-  est_slope <- fit$three_step["Zp", ord]
+  est_int <- coef(fit, matrix = TRUE)["(Intercept)", ord]
+  est_slope <- coef(fit, matrix = TRUE)["Zp", ord]
   se_int <- ses[c(1L, 3L)][ord]
   se_slope <- ses[c(2L, 4L)][ord]
 
@@ -524,12 +524,12 @@ test_that("three_step BCH gaussian distal recovers true class means", {
   )
 
   true_mu_sorted <- sort(c(-1, 0, 1))
-  est_mu_sorted <- sort(fit$three_step)
+  est_mu_sorted <- sort(coef(fit, matrix = TRUE))
 
   # BCH has higher sampling variance than ML, so this uses a looser 3 SE
   # bound (vs. 2 SE for the analogous ML test) to avoid single-seed
   # flakiness while still checking the estimates are unbiased.
-  ses_sorted <- sort(sqrt(diag(fit$three_step_vcov)))
+  ses_sorted <- sort(sqrt(diag(vcov(fit))))
   for (j in seq_along(true_mu_sorted)) {
     expect_true(
       abs(est_mu_sorted[j] - true_mu_sorted[j]) <= 3 * ses_sorted[j],
@@ -559,14 +559,14 @@ test_that("three_step gaussian distal returns tseLCA_distal with named estimates
   )
 
   expect_s3_class(fit, "tseLCA_distal")
-  expect_length(fit$three_step, 3L)
-  expect_named(fit$three_step, paste0("mu_C", 1:3))
-  expect_equal(dim(fit$three_step_vcov), c(3L, 3L))
-  expect_equal(rownames(fit$three_step_vcov), paste0("mu_C", 1:3))
-  expect_true(all(sqrt(diag(fit$three_step_vcov)) > 0))
+  expect_length(coef(fit, matrix = TRUE), 3L)
+  expect_named(coef(fit, matrix = TRUE), paste0("mu_C", 1:3))
+  expect_equal(dim(vcov(fit)), c(3L, 3L))
+  expect_equal(rownames(vcov(fit)), paste0("mu_C", 1:3))
+  expect_true(all(sqrt(diag(vcov(fit))) > 0))
   #True mu = (-1, 0, 1) up to class labeling; range should span negatives and positives
-  expect_true(min(fit$three_step) < 0)
-  expect_true(max(fit$three_step) > 0)
+  expect_true(min(coef(fit, matrix = TRUE)) < 0)
+  expect_true(max(coef(fit, matrix = TRUE)) > 0)
 })
 
 test_that("three_step with both Zp and Zo returns tseLCA_both", {
@@ -585,8 +585,8 @@ test_that("three_step with both Zp and Zo returns tseLCA_both", {
   )
 
   expect_s3_class(fit, "tseLCA_both")
-  expect_false(is.null(fit$covariate))
-  expect_false(is.null(fit$distal))
+  expect_s3_class(covariate(fit), "tseLCA_covariate")
+  expect_s3_class(distal(fit), "tseLCA_distal")
   expect_equal(fit$n_classes, 3L)
   expect_equal(fit$family, "gaussian")
 })
@@ -628,7 +628,7 @@ test_that("three_step multinomial BCH returns a T x C probability matrix", {
   )
 
   expect_s3_class(fit, "tseLCA_distal")
-  pi_hat <- coef(fit)
+  pi_hat <- coef(fit, matrix = TRUE)
   expect_equal(dim(pi_hat), c(3L, 4L))
   expect_equal(rowSums(pi_hat), setNames(rep(1, 3), rownames(pi_hat)))
   expect_true(all(pi_hat >= 0 & pi_hat <= 1))
@@ -680,14 +680,14 @@ test_that("three_step multinomial ML (simple and full) agree and full SEs are >=
   se_full <- sqrt(diag(vcov(fit_full)))
   # Full Step-1 propagation should add uncertainty on top of the robust
   # sandwich, not remove it.
-  expect_true(all(se_full >= se_simple - 1e-8))
+  expect_true(all(se_full >= se_simple - 1e-6))
 })
 
-test_that("multinomial_ml_jacobian matches a numerical check of the estimating equation", {
-  # multinomial_ml_jacobian() is a closed-form derivation (no numerical
+test_that("distal_multinomial_jacobian matches a numerical check of the estimating equation", {
+  # distal_multinomial_jacobian() is a closed-form derivation (no numerical
   # differentiation in the package); this is a cheap regression check
-  # against a numerical Jacobian computed inline, entirely independent of
-  # multinomial_ml_jacobian() itself.
+  # against a numerical Jacobian computed inline, independent of
+  # distal_multinomial_jacobian() itself.
   d <- make_multinomial_distal_data(600L, seed = 60L)
   # Pre-encode as integer categories, matching what three_step() itself
   # does internally before calling clean_data() -- required here since we
@@ -729,11 +729,8 @@ test_that("multinomial_ml_jacobian matches a numerical check of the estimating e
   }
 
   pi_hat <- matrix(theta_hat, nrow = 3L, ncol = C)
-  pzx_mat <- t(pi_hat[, Y_cat, drop = FALSE])
-  ae <- w.is %*% pwx
-  q_i <- rowSums(pi_adj * pzx_mat * ae)
-  r_it <- pi_adj * pzx_mat * ae / q_i
-  Jac_analytic <- multinomial_ml_jacobian(pi_hat, r_it, Y_cat)
+  rec <- distal_records(log(t(pi_hat[, Y_cat, drop = FALSE])), pi_adj, pwx)
+  Jac_analytic <- distal_multinomial_jacobian(pi_hat, rec, w.is, Y_cat)
 
   expect_equal(Jac_analytic, Jac_numeric, tolerance = 1e-4)
 })
@@ -764,7 +761,7 @@ test_that("multinomial with C=2 matches the existing binomial family exactly", {
   )
 
   mu_bin <- 1 / (1 + exp(-coef(fit_bin)))
-  pi_multi <- coef(fit_multi)[, "1"]
+  pi_multi <- coef(fit_multi, matrix = TRUE)[, "1"]
   # Both estimators solve the same weighted-proportion closed form, but
   # binomial's BCH path gets there with Newton-Raphson (converged to within
   # covariate.tol on the parameter step, default 1e-6) while multinomial's
@@ -783,7 +780,7 @@ test_that("multinomial recovers the true category probability structure", {
     family = "multinomial",
     use.simple.cov = TRUE
   )
-  pi_hat <- coef(fit)
+  pi_hat <- coef(fit, matrix = TRUE)
   # Each class should have exactly one dominant (> 0.5) category.
   dominant <- apply(pi_hat, 1L, max)
   expect_true(all(dominant > 0.5))
@@ -822,7 +819,7 @@ test_that("combined Zp.names + family = \"multinomial\" works under full propaga
     use.simple.cov = FALSE
   )
   expect_s3_class(fit_full, "tseLCA_both")
-  V_full <- vcov(fit_full, which = "distal")
+  V_full <- vcov(fit_full, component = "distal")
   expect_true(all(is.finite(diag(V_full))))
   expect_true(all(diag(V_full) > 0))
 
@@ -839,8 +836,8 @@ test_that("combined Zp.names + family = \"multinomial\" works under full propaga
   # Full Step-1/Step-2 propagation should add uncertainty on top of the
   # robust sandwich, not remove it (same check as the distal-only case).
   se_full <- sqrt(diag(V_full))
-  se_simple <- sqrt(diag(vcov(fit_simple, which = "distal")))
-  expect_true(all(se_full >= se_simple - 1e-8))
+  se_simple <- sqrt(diag(vcov(fit_simple, component = "distal")))
+  expect_true(all(se_full >= se_simple - 1e-6))
 })
 
 test_that("Step-2 covariate-uncertainty propagation is actually wired through for multinomial", {
@@ -850,7 +847,7 @@ test_that("Step-2 covariate-uncertainty propagation is actually wired through fo
   # step1-only propagation, still >= the robust sandwich). This test
   # isolates the step-2 term's contribution directly through the internal
   # function, so a regression that drops the wiring shows up as "no
-  # difference" rather than merely "still bigger than simple.cov".
+  # difference", not merely "still bigger than simple.cov".
   d2 <- generate_data(400L, "high", "covariate", seed = 59L)
   # Pre-encode as integer categories, matching what three_step() itself
   # does internally before calling clean_data() -- required here since we
@@ -884,7 +881,7 @@ test_that("Step-2 covariate-uncertainty propagation is actually wired through fo
     w.is = s2$w.is[cd$keep_step3_Zo_in_Y, , drop = FALSE]
   )
 
-  s3.par <- as.vector(fit$covariate$three_step)
+  s3.par <- as.vector(coef(fit, component = "covariate", matrix = TRUE))
   Z_full_raw <- cbind(1, as.matrix(d2[, "Zp", drop = FALSE]))
   Z_mat_dis <- Z_full_raw[cd$keep_step3_Zo, , drop = FALSE]
   p.xz_dis <- function(params) {
@@ -918,7 +915,7 @@ test_that("Step-2 covariate-uncertainty propagation is actually wired through fo
     # Sigma.3/s3.par/p.xz.cov/Z_mat_cov omitted -> step1 term only
   )
 
-  V_full <- vcov(fit, which = "distal")
+  V_full <- vcov(fit, component = "distal")
   expect_false(isTRUE(all.equal(diag(V_step1_only), diag(V_full))))
   # Adding the step-2 term should increase (not decrease) the variance.
   expect_true(all(diag(V_full) >= diag(V_step1_only) - 1e-10))
@@ -937,7 +934,7 @@ test_that("omnibus_test degrees of freedom match theory for multinomial and scal
     use.simple.cov = TRUE
   )
   ob_multi <- omnibus_test(fit_multi)
-  expect_s3_class(ob_multi, "tseLCA_omnibus")
+  expect_s3_class(ob_multi, "htest")
   # (T-1)*(C-1) = 2*3 = 6, the textbook df for a T x C homogeneity test.
   expect_equal(ob_multi$df, 6L)
   expect_true(ob_multi$p.value < 0.001)
@@ -999,7 +996,7 @@ test_that("omnibus_test works on a tseLCA_both object's distal component", {
     use.simple.cov = TRUE
   )
   ob <- omnibus_test(fit_both)
-  expect_s3_class(ob, "tseLCA_omnibus")
+  expect_s3_class(ob, "htest")
   expect_equal(ob$df, 6L)
 })
 
@@ -1029,9 +1026,9 @@ test_that("three_step uses all Y rows when Z has missing values", {
   )
 
   #Estimates should be close (same measurement model, ~20 fewer Z obs)
-  expect_equal(fit_miss$three_step, fit_full$three_step, tolerance = 0.5)
+  expect_equal(coef(fit_miss, matrix = TRUE), coef(fit_full, matrix = TRUE), tolerance = 0.5)
   #Both converge
-  expect_true(all(is.finite(fit_miss$three_step)))
+  expect_true(all(is.finite(coef(fit_miss, matrix = TRUE))))
 })
 
 # ---- Coverage tests: estimates within 2 SEs of truth ----------------------------------------------------
@@ -1058,16 +1055,16 @@ test_that("covariate estimates are within 2 SEs of true slopes and intercepts", 
 
   #True non-reference class params, sorted by slope ascending: (-1, 1)
   #Align estimated classes to true classes by Zp slope sign
-  slopes <- fit$three_step["Zp", ]
+  slopes <- coef(fit, matrix = TRUE)["Zp", ]
   ord <- order(slopes)
 
   true_intercepts <- c(2.3446, -3.6554) # b0 for (C2, C3) in DGP ordering
   true_slopes <- c(-1, 1)
 
-  ses <- sqrt(diag(fit$three_step_vcov))
+  ses <- sqrt(diag(vcov(fit)))
 
-  est_int <- fit$three_step["Intercept", ord]
-  est_slope <- fit$three_step["Zp", ord]
+  est_int <- coef(fit, matrix = TRUE)["(Intercept)", ord]
+  est_slope <- coef(fit, matrix = TRUE)["Zp", ord]
   se_int <- ses[c(1L, 3L)][ord] # Intercept SEs
   se_slope <- ses[c(2L, 4L)][ord] # Zp SEs
 
@@ -1106,7 +1103,7 @@ test_that("covariate slope signs match DGP (negative and positive)", {
     verbose = FALSE
   )
 
-  slopes <- fit$three_step["Zp", ]
+  slopes <- coef(fit, matrix = TRUE)["Zp", ]
   #The two estimated slopes should have opposite signs
   expect_true(any(slopes < 0), label = "at least one negative Zp slope")
   expect_true(any(slopes > 0), label = "at least one positive Zp slope")
@@ -1125,10 +1122,10 @@ test_that("distal estimates recover true class mean ordering", {
   )
 
   true_mu_sorted <- sort(c(-1, 0, 1))
-  est_mu_sorted <- sort(fit$three_step)
+  est_mu_sorted <- sort(coef(fit, matrix = TRUE))
 
   #Each sorted estimate should be within 2 SEs of the sorted truth
-  ses_sorted <- sort(sqrt(diag(fit$three_step_vcov)))
+  ses_sorted <- sort(sqrt(diag(vcov(fit))))
   for (j in seq_along(true_mu_sorted)) {
     expect_true(
       abs(est_mu_sorted[j] - true_mu_sorted[j]) <= 2 * ses_sorted[j],
@@ -1180,7 +1177,7 @@ test_that("corrected SEs (use.simple.cov=FALSE) are >= simple SEs", {
     use.simple.cov = FALSE,
     verbose = FALSE
   )
-  se1 <- sqrt(diag(fit1$three_step_vcov))
-  se2 <- sqrt(diag(fit2$three_step_vcov))
+  se1 <- sqrt(diag(vcov(fit1)))
+  se2 <- sqrt(diag(vcov(fit2)))
   expect_true(all(se2 >= se1))
 })

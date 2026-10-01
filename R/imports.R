@@ -1,2 +1,3 @@
-#' @importFrom stats binomial coef complete.cases glm lm na.omit optim pchisq pnorm poisson rbinom rnorm runif
+#' @importFrom stats anova binomial coef complete.cases fitted formula glm lm logLik na.omit nobs optim pchisq pnorm poisson predict rbinom relevel rnorm runif vcov
+#' @importFrom Formula Formula
 NULL

@@ -37,7 +37,8 @@ three_step(
 \item{data}{A data.frame containing all columns referenced by \code{Y.names},
 \code{Zp.names}, and \code{Zo.name}.}
 
-\item{Y.names}{Character vector of indicator column names. Need to be coded as consecutive integers with base level starting at \code{0}.}
+\item{Y.names}{Character vector of indicator column names. Indicators
+may be factors, logicals, character, or numeric codes (see \code{\link[=tse_lca]{tse_lca()}}).}
 
 \item{n_classes}{Integer. Number of latent classes.}
 
@@ -63,7 +64,7 @@ with many random starts, or a published item-response table).
 \pkg{multilevLCA}'s default initialization (k-means on principal
 components) is deterministic given the data and can converge to a local
 optimum of the Step-1 log-likelihood; supplying \code{startval} bypasses
-it entirely (\code{kmea = FALSE} with the classification injected as
+it (\code{kmea = FALSE} with the classification injected as
 multilevLCA's \code{startval}). Mutually exclusive with \code{step1} and
 \code{n_init}. Default \code{NULL}.}
 
@@ -73,7 +74,7 @@ classifications (\code{kmea = FALSE}, not multilevLCA's k-means-on-PCA
 path) and keeps the fit with the highest log-likelihood -- the
 unconditional multi-start analog of \code{n_init} in \pkg{StepMix} or
 \code{nrep} in \pkg{poLCA}. This is distinct from
-\code{iter.measurement}, which instead reruns multilevLCA's own k-means
+\code{iter.measurement}, which reruns multilevLCA's own k-means
 initialization, and only when the entropy R\eqn{^2} of the default fit
 is below \code{R2.threshold}; \code{n_init} restarts always run.
 Mutually exclusive with \code{step1} and \code{startval}. Default
@@ -117,8 +118,8 @@ the Step-1 entropy R\eqn{^2} falls below \code{R2.threshold}. Default
 \item{R2.threshold}{Scalar. Entropy R\eqn{^2} threshold below which Step-1
 random restarts are triggered. Default \code{0.70}.}
 
-\item{use.bch}{Logical. Use BCH-corrected weights instead of the ML
-estimator in Step 3. May error if BCH weights induce a non-positive semi-definite Hessian in the third step (common in cases of low separation). Default \code{FALSE}.}
+\item{use.bch}{Logical. Use the BCH estimator in Step 3 (default: the ML
+estimator). May error if BCH weights induce a non-positive semi-definite Hessian in the third step (common in cases of low separation). Default \code{FALSE}.}
 
 \item{em.maxIter}{Integer. Maximum EM iterations for the Step-3 covariate
 or distal outcome model. Default \code{200L}.}
@@ -144,7 +145,7 @@ a factor, character, or integer column; categories are taken from
 \code{sort(unique(data[[Zo.name]]))} with \code{factor()}). For
 \code{"multinomial"}, \code{coef()} returns a \code{T x C} matrix of
 class-conditional category probabilities
-\eqn{\hat\pi_{tc} = P(Zo = c \mid X = t)} (rows sum to 1) instead of a
+\eqn{\hat\pi_{tc} = P(Zo = c \mid X = t)} (rows sum to 1), not a
 length-\code{T} vector, and \code{vcov()} returns its
 \code{(T*C) x (T*C)} sandwich covariance (necessarily singular, since
 each class's row sums to 1 -- see \code{\link{omnibus_test}()} for a
@@ -166,9 +167,11 @@ propagates both Step-1 measurement and Step-3 covariate uncertainty
 under \code{use.simple.cov = FALSE}, the same as the other families.
 Default \code{"gaussian"}.}
 
-\item{correct.spec}{Logical. Use the model-robust outer-product Hessian for
-Step-3 standard errors rather than the observed-data Hessian. Not appropriate
-when the Step-3 model may be misspecified. Default \code{FALSE}.}
+\item{correct.spec}{Logical. Estimate the Step-3 information matrix by the
+outer product of the case-wise scores, not the observed-data Hessian.
+Valid only when the Step-3 model is correctly specified; the default
+observed-Hessian sandwich is robust to misspecification. Default
+\code{FALSE}.}
 
 \item{verbose}{Logical. Print convergence messages. Default \code{FALSE}.}
 }
@@ -184,19 +187,19 @@ models were estimated:
 \item{\code{AIC}, \code{BIC}}{Information criteria from the measurement model.}
 \item{\code{R2entr}}{Entropy R\eqn{^2} of the measurement model.}
 \item{\code{n_classes}}{Number of latent classes.}
-\item{\code{posteriors}}{N x T matrix of soft posterior class probabilities.}
-\item{\code{classifications}}{Length-N integer vector of modal class assignments.}
+\item{\code{posteriors}}{n x T matrix of soft posterior class probabilities.}
+\item{\code{classifications}}{Length-n integer vector of modal class assignments.}
 }
 }
 \item{\code{tseLCA_covariate}}{Returned when \code{Zp.names} is supplied and
 \code{Zo.name} is \code{NULL}. Contains all elements of
 \code{tseLCA_measurement} plus:
 \describe{
-\item{\code{three_step}}{Q x (T-1) matrix of Step-3 gamma coefficients.}
-\item{\code{three_step_vcov}}{Q(T-1) x Q(T-1) variance-covariance matrix
+\item{\code{three_step}}{(Q+1) x (T-1) matrix of Step-3 gamma coefficients.}
+\item{\code{three_step_vcov}}{(Q+1)(T-1) x (Q+1)(T-1) variance-covariance matrix
 for \code{three_step}, with measurement-uncertainty correction
 unless \code{use.simple.cov = TRUE}.}
-\item{\code{two_step}}{Q x (T-1) matrix of two-step starting values, or
+\item{\code{two_step}}{(Q+1) x (T-1) matrix of two-step starting values, or
 \code{NULL} if \code{use.two.step = FALSE}.}
 \item{\code{two_step_vcov}}{\pkg{multilevLCA} bias-corrected vcov for the
 two-step estimates, or \code{NULL}.}
@@ -231,8 +234,8 @@ By construction smaller than the equivalent one-step MLE likelihood.}
 using the number of distal-complete observations.}
 \item{\code{family}}{Character. The distal outcome family used.}
 \item{\code{estimator}}{Character: \code{"ML"} or \code{"BCH"}.}
-\item{\code{posteriors}}{N x T soft posterior matrix.}
-\item{\code{classifications}}{Length-N modal class assignment vector.}
+\item{\code{posteriors}}{n x T soft posterior matrix.}
+\item{\code{classifications}}{Length-n modal class assignment vector.}
 }
 }
 \item{\code{tseLCA_both}}{Returned when both \code{Zp.names} and
@@ -245,8 +248,8 @@ using the number of distal-complete observations.}
 (see above), including \code{llik}, \code{AIC}, \code{BIC},
 \code{three_step.llik}.}
 \item{\code{family}, \code{n_classes}, \code{estimator}}{Shared top-level fields.}
-\item{\code{posteriors}, \code{classifications}}{Shared N x T posterior
-matrix and length-N modal class vector.}
+\item{\code{posteriors}, \code{classifications}}{Shared n x T posterior
+matrix and length-n modal class vector.}
 }
 }
 }
@@ -268,6 +271,28 @@ means following Bakk, Tekle & Vermunt (2013), with the ML correction (Vermunt, 2
 \code{vignette("tseLCA", package = "tseLCA")} for a worked example.
 }
 }
+\section{Deprecated}{
+
+Deprecated as of tseLCA 2.0.0. It keeps working (and gives the same
+estimates) but warns once per session; set
+\code{options(tseLCA.warn.deprecated = FALSE)} to silence the warning. Use
+\code{\link[=tseLCA]{tseLCA()}} or the step-wise functions:\tabular{ll}{
+   \code{three_step()} \tab tseLCA 2.0 \cr
+   \code{Y.names}, \code{n_classes} \tab \code{tse_lca(cbind(...) ~ 1, nclass = )} \cr
+   \code{Zp.names} \tab \code{tse_covariate(, ~ ...)} or \code{tseLCA(... ~ covariates)} \cr
+   \code{Zo.name}, \code{family} \tab \code{tse_distal(, outcome ~ 1, family = )}, or \code{\link[=tseLCA]{tseLCA()}} with the outcome after the bar \cr
+   \code{step1} (measurement model from another sample) \tab \code{tse_classify(, newdata = )} \cr
+   \code{startval} \tab \code{tse_lca(start = )} \cr
+   \code{use.modal.assignment} \tab \code{tse_classify(assignment = )} \cr
+   \code{use.bch} \tab \code{method = "BCH"} \cr
+   \code{use.simple.cov} \tab \code{se = "robust"} \cr
+   \code{rebase} \tab \code{ref} argument, or \code{relevel()} \cr
+   \code{incomplete} \tab \code{tse_lca(missing = "fiml")} \cr
+   \code{n_init}, \code{maxIter.measurement}, \code{measurement.tol}, \code{iter.measurement}, \code{R2.threshold}, \code{em.maxIter}, \code{covariate.tol}, \code{boundary.tol}, \code{correct.spec} \tab \code{\link[=tse_control]{tse_control()}} \cr
+   \code{get.twostep.vcov} \tab \code{tse_twostep(se = TRUE)} \cr
+}
+}
+
 \examples{
 d <- generate_data(n = 200, separation = "high",
                    scenario = "covariate", seed = 1)

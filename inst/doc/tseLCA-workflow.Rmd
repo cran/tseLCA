@@ -16,744 +16,347 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup, message = FALSE, warning=FALSE}
+```{r setup, message = FALSE}
 library(tseLCA)
 ```
 
 ## Overview
 
-`tseLCA` implements the BCH and ML bias-adjusted three-step estimators for
-latent class analysis (LCA) with covariates and distal outcomes, following the methodological framework for both BCH and Vermunt's ML approaches from
-Bakk, Tekle & Vermunt (2013). `tseLCA` also builds on top of the two-step LCA estimation procedure outlined by Bakk & Kuha (2018), and using the R package `multilevLCA` for efficient measurement model estimation from Lyrvall et al.
-(2025). `tseLCA` provides analytic sandwich variance estimation that propagates measurement
-uncertainty through the classification-error correction in the final step.
+Latent class analysis (LCA) groups observations into unobserved classes from
+a set of categorical indicators. Researchers usually also want to know how the
+classes relate to other variables: *covariates* that predict class membership,
+and *distal outcomes* that the classes predict.
 
-The three-step approach separates the model into:
+`tseLCA` does this with **three-step estimation**:
 
-1. **Step 1** — Estimate the LCA measurement model (class-conditional item
-   probabilities and class prevalences).
-2. **Step 2** — Assign posterior class probabilities and compute the
-   misclassification matrix.
-3. **Step 3** — Estimate the structural model (covariate effects or distal
-   outcome means) using the bias-adjusted weights.
+1. **Measurement model.** Estimate the latent classes from the indicators
+   alone (`tse_lca()`).
+2. **Classification.** Assign observations to classes and quantify the
+   classification error (`tse_classify()`).
+3. **Structural model.** Relate the classes to covariates (`tse_covariate()`)
+   or distal outcomes (`tse_distal()`), correcting for the classification
+   error of Step 2.
 
----
+Because the measurement model is fixed before any structural variable enters,
+the covariates and outcomes cannot change what the classes mean. That is the
+main reason to prefer three-step over one-step estimation, in which
+indicators, covariates, and outcomes are modeled jointly and the class
+solution can shift with every change in the structural specification.
+Assigning observations to classes and then analyzing the assignments, as if
+they were the true classes, biases the structural estimates toward zero;
+the bias-adjusted estimators of Bolck, Croon, and Hagenaars (2004; "BCH") and
+Vermunt (2010; "ML") remove that bias, and `tseLCA` adds standard errors that
+account for the uncertainty of the Step-1 measurement model (Bakk, Oberski,
+and Vermunt 2014).
 
-## Synthetic data
+Each step returns an object that can be inspected with the usual R tools
+(`print()`, `summary()`, `coef()`, `vcov()`, `confint()`, `logLik()`,
+`AIC()`, `BIC()`, `predict()`, `plot()`) before moving to the next. The
+one-call interface `tseLCA()` runs all steps at once.
 
-The built-in data-generating process replicates the design of Bakk & Kuha
-(2018). Each dataset has six binary indicators ($Y_1, \ldots, Y_6$) drawn from
-a three-class LCA, plus either a covariate $Z_p \sim \text{Uniform}\{1,\ldots,5\}$
-predicting class membership, or a continuous distal outcome $Z_o$ predicted by
-class membership.
+## Example data
 
-```{r generate-data}
-# High separation: P(Y_h = 1 | class) = 0.9 / 0.1
-d <- generate_data(
-  n = 500,
-  separation = "high",
-  scenario = "covariate",
-  seed = 1
-)
+`generate_data()` simulates data from the design of Bakk and Kuha (2018):
+three classes, six binary indicators `Y1`--`Y6`, and either a covariate `Zp`
+(`scenario = "covariate"`) or a continuous distal outcome `Zo`
+(`scenario = "distal"`). `separation` controls how well the indicators
+separate the classes; the true class `X` is included for reference.
+
+```{r data}
+d <- generate_data(n = 1000, separation = "high", scenario = "covariate", seed = 1)
+d$Zo <- draw_Zo(d$X, bk2018_params$distal_params) # add a distal outcome
 head(d)
 ```
 
-```{r generate-data-low}
-# Low separation: P(Y_h = 1 | class) = 0.7 / 0.3
-# Zp and X are identical to 'd' because seed = 1
-d.low <- generate_data(
-  n = 500,
-  separation = "low",
-  scenario = "covariate",
-  seed = 1
-)
-head(d.low)
+## Step 1: the measurement model
+
+### Choosing the number of classes
+
+The number of classes is chosen from the measurement model alone, before any
+covariates or outcomes are considered. With several values of `nclass`,
+`tse_lca()` returns a class-enumeration table of fit statistics (see Nylund,
+Asparouhov, and Muthén 2007, and Masyn 2013, for guidance on using them).
+
+```{r enumeration}
+f_items <- cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1
+sel <- tse_lca(f_items, data = d, nclass = 1:4)
+sel
 ```
 
----
+```{r enumeration-plot, fig.height = 4}
+plot(sel)
+```
 
-## Step 1: Measurement model
+The BIC and the sample-size adjusted BIC (SABIC) favor three classes. The
+AIC, which penalizes additional parameters less, marginally prefers four, but
+the fourth class holds less than 2% of the sample, a common sign of
+over-extraction; the three-class model is also the more interpretable. In
+practice the choice combines these criteria with class sizes, separation
+(entropy), and substantive interpretation. `best_model()` extracts the model
+selected by a criterion; `sel[[k]]` extracts the `k`-class model.
 
-`three_step()` with no `Zp.names` or `Zo.name` fits the measurement model
-only, returning a `tseLCA_measurement` object. Internally this calls
-`multilevLCA::multiLCA()` with random restarts when entropy $R^2$ is low.
+```{r best}
+m <- best_model(sel, criterion = "BIC")
+```
+
+### Inspecting the measurement model
 
 ```{r measurement}
-d.measurement <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  measurement.tol = 1e-8
-)
-summary(d.measurement)
+summary(m)
 ```
 
-With low separation the measurement model can struggle to find the global
-maximum. Use `iter.measurement` to trigger the number of random restarts whenever entropy
-$R^2$ falls below `R2.threshold`.
-
-```{r measurement-low}
-d.low.measurement <- three_step(
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  iter.measurement = 10,
-  R2.threshold = 0.9
-)
-summary(d.low.measurement)
+```{r measurement-plot}
+plot(m)
 ```
 
-The `plot()` S3 method delegates to `multilevLCA`'s item-profile plot.
+`class_sizes()` and `item_probs()` give the parameters on the probability
+scale; `coef()` and `vcov()` give them on the unconstrained log-ratio scale in
+which they are estimated.
 
-```{r plot-measurement, fig.width=6}
-plot(d.measurement)
+```{r measurement-accessors}
+class_sizes(m)
+item_probs(m)
 ```
 
----
+Latent class models can have several local optima. By default `tse_lca()`
+uses the k-means initialization of **multilevLCA**, with additional random
+starts when the entropy is low; `control = tse_control(n_init = 20)` fits the
+model from 20 random starts, and `start` fixes a starting
+classification.
 
-## Two-step estimates
+## Step 2: classification
 
-`fitZ_from_fit0()` fixes the measurement parameters at their Step-1 values and
-estimates multinomial logit coefficients $\gamma$ with EM. These two-step
-estimates serve as starting values for Step 3 and are generally close to the
-final three-step estimates.
+`tse_classify()` assigns each observation to its most likely class (modal
+assignment) or, with `assignment = "proportional"`, to every class with its
+posterior probability as weight. It reports the classification-error
+probabilities $P(W = s \mid X = t)$ between the true class $X$ and the
+assigned class $W$, which the Step-3 estimators correct for.
 
-```{r two-step}
-d.fitZ <- fitZ_from_fit0(
-  fit0 = d.measurement$measurement_model$fit0,
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  Zp.names = "Zp"
-)
-# True slopes: -1 (C2) and +1 (C3) relative to C1
-d.fitZ$mGamma
+```{r classify}
+cl <- tse_classify(m)
+cl
 ```
 
-Starting values from the high-separation fit can be passed to the
-low-separation fit to help it converge.
+With these well-separated classes, 92--97% of the members of each class are
+assigned to it. `posterior()` and `classes()` return the posterior
+probabilities and the modal classes.
 
-```{r two-step-low}
-d.low.fitZ <- fitZ_from_fit0(
-  fit0 = d.low.measurement$measurement_model$fit0,
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  Zp.names = "Zp",
-  starting_val = d.fitZ$mGamma
-)
-d.low.fitZ$mGamma
+## Step 3: covariates
+
+`tse_covariate()` estimates a multinomial logistic regression of class
+membership on the covariates. The default estimator is ML with standard
+errors corrected for the Step-1 uncertainty.
+
+```{r covariate}
+fc <- tse_covariate(cl, ~ Zp)
+summary(fc)
 ```
 
----
+The coefficients are named `covariate:class` and the first class is the
+reference. The generic tools work as usual:
 
-## Three-Step estimation
-
-### ML estimator (default)
-
-A single `three_step()` call handles all three steps. By default it uses the
-ML correction of Vermunt (2010) and modal class assignment.
-
-```{r three-step-default}
-d.three_step <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp"
-)
-summary(d.three_step)
+```{r covariate-tools}
+confint(fc)
+AIC(fc)
+anova(fc) # Wald test of each covariate term, across all classes
 ```
 
-The standard `coef()` and `vcov()` S3 methods work on any `tseLCA` object.
+`predict()` gives the class-membership probabilities at given covariate
+values:
 
-```{r s3-methods}
-coef(d.three_step)
-vcov(d.three_step)
+```{r covariate-predict}
+predict(fc, newdata = data.frame(Zp = 1:5))
 ```
 
-### Proportional assignment
+### Estimators and standard errors
 
-With modal assignment (`use.modal.assignment = TRUE`, the default), the
-Jacobian in the measurement-uncertainty correction is not mathematically defined. Setting `use.modal.assignment = FALSE` uses soft posterior
-weights throughout, giving an analytic Jacobian and is recommended when
-separation is moderate or low. When `use.modal.assignment = TRUE`, the Jacobian $\frac{\partial\theta_2}{\partial\theta_1}$ computed using the full posterior weights (e.g., behaving as if `use.modal.assignment = FALSE`) to maintain well-defined derivatives, though three-step estimates would still be computed with modal assignment as specified. The different is negligible when separation is high.
+The BCH estimator and the uncorrected three-step estimator (which analyzes
+the assigned classes as if they were the true classes) are available for
+comparison; so is the two-step estimator of Bakk and Kuha (2018).
 
-```{r three-step-prop}
-d.three_step.prop <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.modal.assignment = FALSE
-)
-summary(d.three_step.prop)
+```{r estimators}
+fc_bch <- tse_covariate(cl, ~ Zp, method = "BCH")
+fc_raw <- tse_covariate(cl, ~ Zp, method = "none")
+ft <- tse_twostep(m, ~ Zp)
+round(cbind(
+  ML = coef(fc), BCH = coef(fc_bch), uncorrected = coef(fc_raw), two.step = coef(ft)
+), 3)
 ```
 
-### Simple (robust) standard errors
+The uncorrected estimates are attenuated toward zero (the true slopes are
+$-1$ and $1$); the bias-adjusted estimates are not.
 
-Setting `use.simple.cov = TRUE` skips the measurement-uncertainty correction
-and returns the robust sandwich SEs from Step 3 only. When separation is high
-the correction is negligible, so this is a useful computational shortcut for
-large samples.
+`se = "robust"` omits the Step-1 correction. With well-separated classes the
+two are close; the correction matters more when classes are less distinct.
 
-```{r three-step-simple}
-d.three_step.simple <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.simple.cov = TRUE
-)
-summary(d.three_step.simple)
+```{r se}
+round(cbind(
+  corrected = sqrt(diag(vcov(fc))),
+  robust = sqrt(diag(vcov(tse_covariate(cl, ~ Zp, se = "robust"))))
+), 4)
 ```
 
-### BCH estimator
+Under low separation, proportional assignment (`tse_classify(m, assignment =
+"proportional")`) with the ML estimator is generally the most reliable choice.
 
-The BCH correction of Bolck, Croon & Hagenaars (2004) is available with
-`use.bch = TRUE`. It works well with high separation but can produce an
-ill-conditioned Hessian when separation is low (resulting in a covariance matrix that is not positive semi-definite), in which case the ML estimator
-is preferred.
+### Reference class and covariate formulas
 
-```{r three-step-bch}
-d.three_step.bch <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.bch = TRUE
-)
-summary(d.three_step.bch)
+`ref` (or `relevel()` on a fitted model) changes the reference class.
+Covariates follow the usual formula syntax, including factors, interactions,
+and transformations. A variable created after classification is supplied with
+`data`, which must hold the classified rows (it may add columns).
+
+```{r ref}
+coef(relevel(fc, ref = "C3"), matrix = TRUE)
+
+d$group <- factor(ifelse(d$Zp > 3, "high", "low"))
+anova(tse_covariate(cl, ~ Zp + group, data = d))
 ```
 
-BCH with low-separation data can fail to produce a positive semi-definite
-Hessian. The ML estimator with proportional assignment is more reliable in
-this setting.
+## Step 3: distal outcomes
 
-```{r bch-low, eval = FALSE}
-# Not run in vignette build (slow and and produces warnings)
-bch.fail <- three_step(
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.bch = TRUE,
-  maxIter.measurement = 2000,
-  iter.measurement = 10
-)
+`tse_distal()` estimates the distribution of a distal outcome in each class.
+Outcomes can be `"gaussian"` (class means with a common variance),
+`"poisson"`, `"binomial"`, or `"multinomial"` (nominal).
+
+```{r distal}
+fd <- tse_distal(cl, Zo ~ 1)
+summary(fd)
 ```
 
-```{r three-step-low}
-# Preferred approach for low separation
-d.low.three_step.prop <- three_step(
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.modal.assignment = FALSE
-)
-summary(d.low.three_step.prop)
-```
-
----
-
-## Choosing the reference class
-
-By default, class 1 (`"C1"`) is the reference category for the multinomial
-logit parameterization. The `rebase` argument changes this. Estimates are
-reparameterized consistently: log-likelihoods are invariant, and the
-coefficients satisfy the transitivity relation
-$\log(\pi_t / \pi_j) = \log(\pi_t / \pi_1) - \log(\pi_j / \pi_1)$.
-
-```{r rebase-c1}
-# Default: C1 as reference
-summary(d.three_step.simple)
-```
-
-```{r rebase-c2}
-d.three_step.simpleC2 <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.simple.cov = TRUE,
-  rebase = "C2"
-)
-summary(d.three_step.simpleC2)
-```
-
-```{r rebase-c3}
-d.three_step.simpleC3 <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.simple.cov = TRUE,
-  rebase = "C3"
-)
-summary(d.three_step.simpleC3)
-```
-
----
-
-## Passing a pre-fitted measurement model
-
-The `step1` argument accepts any previously fitted `tseLCA` object or the raw
-output of `lca_step1()`. This is useful when you want to:
-
-- Reuse an expensive measurement model across multiple structural models.
-- Estimate the measurement model on a large reference sample and apply it to a
-  smaller analysis sample.
-- Inject custom two-step starting values computed with `fitZ_from_fit0()`.
-
-```{r step1-same-data}
-# Reuse the measurement model estimated above
-d.three_step.prop2 <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.modal.assignment = FALSE,
-  step1 = d.measurement$measurement_model
-)
-summary(d.three_step.prop2)
-```
-
-```{r step1-different-sample}
-# Measurement model from a larger low-separation sample
-d.low2000 <- generate_data(
-  n = 2000,
-  separation = "low",
-  scenario = "covariate",
-  seed = 2
-)
-d.low.measurement2000 <- three_step(
-  data = d.low2000,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3
-)
-
-# Apply to the smaller sample; get.twostep.vcov returns multilevLCA's
-# bias-corrected vcov for the two-step estimates
-d.low.three_step.prop2 <- three_step(
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.modal.assignment = FALSE,
-  step1 = d.low.measurement2000$measurement_model,
-  get.twostep.vcov = TRUE
-)
-summary(d.low.three_step.prop2)
-```
-
-You can also compute two-step starting values separately and inject them
-before calling `three_step()`.
-
-```{r step1-inject-fitz}
-d.low.fitZ2 <- fitZ_from_fit0(
-  fit0 = d.low.measurement2000$measurement_model$fit0,
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  Zp.names = "Zp"
-)
-d.low.measurement2000$measurement_model$fitZ <- d.low.fitZ2
-
-d.low.three_step.prop3 <- three_step(
-  data = d.low,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  use.modal.assignment = FALSE,
-  step1 = d.low.measurement2000$measurement_model
-)
-summary(d.low.three_step.prop3)
-```
-
----
-
-## Fixed Step-1 initialization
-
-`multilevLCA::multiLCA()`'s default initialization (k-means on principal
-components) is deterministic given the data, and on some datasets can
-converge to a local rather than global optimum of the Step-1
-log-likelihood. The `startval` argument anchors Step 1 to a fixed starting
-classification instead, bypassing k-means entirely (`kmea = FALSE` under
-the hood).
-
-`startval` accepts an integer classification vector (one predicted class
-per row)...
-
-```{r startval-vector}
-startval.vec <- d.measurement$classifications
-d.three_step.startval <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  startval = startval.vec
-)
-summary(d.three_step.startval)
-```
-
-...or a $T \times C$ conditional item-response probability matrix -- e.g.
-from an external solver such as `poLCA`, or, as here, a first-pass tseLCA
-fit's own `mPhi` expanded to both categories per item.
-
-```{r startval-phi}
-phi.compact <- d.measurement$measurement_model$fit0$mPhi # 6 binary items x 3 classes
-phi.full <- do.call(
-  rbind,
-  lapply(1:6, \(h) rbind(1 - phi.compact[h, ], phi.compact[h, ]))
-)
-d.three_step.startval.phi <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  startval = phi.full
-)
-# Same solution as startval.vec above (both anchor Step 1 to the same fit)
-summary(d.three_step.startval.phi)
-```
-
----
-
-## Missing data
-
-`tseLCA` uses a two-pass row-filtering strategy that matches `multilevLCA`'s
-approach for the measurement model while allowing more observations into Steps
-1 and 2 than Step 3.
-
-```{r missing-data-setup}
-set.seed(42)
-d.new <- generate_data(500, separation = "high", seed = 3)
-sparsity <- 0.1
-missing <- 1 -
-  matrix(
-    rbinom(prod(dim(d.new)), size = 1, prob = sparsity),
-    nrow = nrow(d.new),
-    ncol = ncol(d.new)
-  )
-missing[missing == 0] <- NA_real_
-d.sparse <- d.new * missing
-head(d.sparse)
-```
-
-With `incomplete = FALSE` (the default), any row with a missing indicator is
-dropped before the measurement model is estimated.
-
-```{r missing-listwise}
-d.sparse.measurement <- three_step(
-  data = d.sparse,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  incomplete = FALSE,
-  verbose = TRUE
-)
-# Rows dropped = number of rows with at least one missing Y
-sum(apply(d.sparse[, paste0("Y", 1:6)], 1, \(x) any(is.na(x))))
-summary(d.sparse.measurement)
-```
-
-With `incomplete = TRUE`, only fully-missing rows are dropped; partially
-observed rows contribute to the measurement model through FIML.
-
-```{r missing-fiml}
-d.sparse.measurement2 <- three_step(
-  data = d.sparse,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  incomplete = TRUE,
-  verbose = TRUE
-)
-summary(d.sparse.measurement2)
-```
-
-Regardless of `incomplete`, Step 3 drops any row with a missing covariate. The
-rows used in Step 3 are a subset of those used in Steps 1 and 2.
-
-```{r missing-covariate}
-d.sparse.three_step <- three_step(
-  data = d.sparse,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  incomplete = TRUE,
-  verbose = TRUE
-)
-# Additional rows dropped from Step 3 due to missing Zp
-sum(is.na(d.sparse$Zp))
-summary(d.sparse.three_step)
-```
-
-A FIML measurement model can be passed in and then reused for the covariate
-step on the same sparse data.
-
-```{r missing-reuse}
-d.sparse.three_step2 <- three_step(
-  data = d.sparse,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  incomplete = TRUE,
-  step1 = d.sparse.measurement2$measurement_model,
-  verbose = TRUE
-)
-summary(d.sparse.three_step2)
-```
-
----
-
-## Polytomous items
-
-`tseLCA` supports polytomous indicators, following `multilevLCA`'s convention
-that item categories are coded as consecutive integers starting at 0.
-
-Here we reproduce the example from the `poLCA` package.
-
-```{r polytomous-setup, message = FALSE}
-data(election, package = "poLCA")
-elec <- election
-elec.items <- colnames(election)[1:12]
-
-# Recode to 0-based integers as required by multilevLCA
-elec[, elec.items] <- lapply(elec[, elec.items], \(x) as.integer(x) - 1L)
-```
-
-```{r polytomous-fit}
-elec.measurement <- three_step(
-  data = elec,
-  Y.names = elec.items,
-  n_classes = 3,
-  #The poLCA example drops any row with a missing cell
-  incomplete = FALSE
-)
-
-elec.three_step <- three_step(
-  data = elec,
-  Y.names = elec.items,
-  n_classes = 3,
-  Zp.names = c("PARTY"),
-  step1 = elec.measurement$measurement_model,
-  incomplete = FALSE,
-  #With the neutral group as the base-category
-  rebase = "C3"
-)
-summary(elec.three_step)
-```
-
-```{r elec-example}
-
-party.x <- seq(from = 1, to = 7, length.out = 101)
-pidmat <- cbind(1, party.x)
-exb <- exp(pidmat %*% coef(elec.three_step))
-
-matplot(
-  party.x,
-  (cbind(1, exb)) / (1 + rowSums(exb)),
-  ylim = c(0, 1),
-  type = "l",
-  lwd = 3,
-  col = 1,
-  xlab = "Party ID: strong Democratic (1) to strong Republican (7)",
-  ylab = "Probability of latent class membership",
-  main = "Party ID as a predictor of candidate affinity class",
-)
-text(3.9, 0.60, "Other")
-text(6.2, 0.6, "Bush affinity")
-text(2.0, 0.65, "Gore affinity")
-
-```
-
----
-
-## Distal outcomes
-
-For distal outcomes ($Z_o \leftarrow X \rightarrow Y$), supply `Zo.name` and a
-`family` argument. The available families are `"gaussian"` (default),
-`"poisson"`, `"binomial"`, and `"multinomial"` (for a nominal categorical
-outcome; see below). Both ML and BCH estimators are available.
-
-```{r distal-data}
-d.distal <- generate_data(
-  n = 500,
-  separation = "high",
-  scenario = "distal",
-  seed = 4
-)
-# True class means: mu = (0, 1, -1) for C1, C2, C3
-```
-
-```{r distal-fit}
-d.distal.measurement <- three_step(
-  data = d.distal,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3
-)
-
-# ML estimator
-d.distal.three_step.ml <- three_step(
-  data = d.distal,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zo.name = "Zo",
-  step1 = d.distal.measurement$measurement_model,
-  use.modal.assignment = FALSE,
-  family = "gaussian"
-)
-
-# BCH estimator: closed-form M-step for distal outcomes
-d.distal.three_step.bch <- three_step(
-  data = d.distal,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zo.name = "Zo",
-  step1 = d.distal.measurement$measurement_model,
-  use.modal.assignment = FALSE,
-  use.bch = TRUE,
-  family = "gaussian"
-)
-
-summary(d.distal.three_step.ml)
-summary(d.distal.three_step.bch)
-```
-
----
-
-## Categorical distal outcomes
-
-For a nominal `Zo` with two or more categories and no natural ordering,
-`family = "multinomial"` estimates a saturated model: the $T \times C$
-matrix of class-conditional category probabilities
-$\hat\pi_{tc} = P(Z_o = c \mid X = t)$, together with its
-$(TC) \times (TC)$ sandwich covariance.
-
-```{r multinomial-data}
-cat.probs <- matrix(c(.7, .15, .15, .15, .7, .15, .15, .15, .7), 3, 3, byrow = TRUE)
-d.distal$Zcat <- factor(apply(
-  cat.probs[d.distal$X, ],
-  1,
-  \(p) sample(c("low", "mid", "high"), 1, prob = p)
-))
-```
-
-```{r multinomial-fit}
-d.distal.three_step.multi <- three_step(
-  data = d.distal,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zo.name = "Zcat",
-  step1 = d.distal.measurement$measurement_model,
-  family = "multinomial"
-)
-# coef() returns a T x C matrix of category probabilities (rows sum to 1)
-coef(d.distal.three_step.multi)
-summary(d.distal.three_step.multi)
-```
-
-Unlike `"binomial"`, whose `coef()`/`vcov()` are on the logit scale,
-`"multinomial"` reports both directly on the probability scale, so
-`Std.Error` is directly interpretable without a delta-method
-back-transform -- but a symmetric interval `Estimate ± 1.96 * Std.Error`
-can fall outside the unit interval for a probability near a boundary, the
-same familiar limitation as a naive Wald interval for a sample proportion.
-The per-cell `z.value`/`p.value` above (testing each probability against
-zero) are rarely the question of interest; the omnibus test below gives a
-boundary-safe test of whether the outcome's distribution differs across
-classes.
-
----
-
-## Omnibus test of class equality
-
-`omnibus_test()` runs a generalized Wald test of
-$H_0: \theta_1 = \theta_2 = \cdots = \theta_T$ -- whether the distal
-outcome's distribution is the same for every class -- for any
-`tseLCA_distal` or `tseLCA_both` object, regardless of family. It uses a
-Moore-Penrose pseudo-inverse of the contrast covariance, so it stays valid
-when that covariance is singular, as it always is for
-`family = "multinomial"` (each class's category probabilities sum to 1).
-The resulting degrees of freedom recover the textbook $(T-1)(C-1)$ for a
-$T \times C$ chi-squared test of homogeneity in that case, and $T-1$ for
-the scalar-parameter families.
+`omnibus_test()` tests whether the outcome's distribution differs across
+classes:
 
 ```{r omnibus}
-omnibus_test(d.distal.three_step.ml)
-omnibus_test(d.distal.three_step.multi)
+omnibus_test(fd)
 ```
 
-A significant result only says *some* class differs from some other on
-this outcome, not which -- pairwise post-hoc comparisons with multiplicity
-correction are a natural next step and are not yet implemented in tseLCA.
+For a nominal outcome, `coef(fit, matrix = TRUE)` gives the class-by-category
+probability matrix:
 
----
-
-## Three-step estimation with both covariates (Zp) and distal outcomes (Zo)
-
-Consistent with how most research in the social sciences construct the relationships between $Z_p$ and $X$, and $X$ and $Z_o$, the relationship between $Z_p$ and $X$ is estimated **first**, followed by estimation between $X$ and $Z_o$, adjusting for the covariate-adjusted posteriors in the estimation procedures for the distal outcome model in step 3.
-
-```{r covariate-distal-fit}
-d.covariate <- generate_data(
-  n = 500,
-  separation = "high",
-  scenario = "covariate",
-  seed = 4
-)
-d.covariate$Zo <- draw_Zo(d.covariate$X, bk2018_params$distal_params)
-head(d.covariate)
-
-d.covariate.three_step <- three_step(
-  data = d.covariate,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  Zo.name = "Zo",
-  use.modal.assignment = FALSE
-)
-summary(d.covariate.three_step)
+```{r multinomial}
+d$Zcat <- cut(d$Zo, c(-Inf, -0.5, 0.5, Inf), labels = c("low", "mid", "high"))
+fm <- tse_distal(cl, Zcat ~ 1, family = "multinomial", data = d)
+round(coef(fm, matrix = TRUE), 3)
+omnibus_test(fm)
 ```
 
-Note that with covariates in a model with high separation, the standard errors above should, on average, by systematically smaller for distal outcome estimation than if there were no covariates in the model (see below).
+### Covariates and a distal outcome
 
-```{r}
-three_step(
-  data = d.covariate,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zo.name = "Zo",
-  use.modal.assignment = FALSE
-) |>
-  vcov() |>
-  diag() |>
-  sqrt()
+Passing a covariate model to `tse_distal()` fits both parts. The class prior
+then depends on the covariates, and the uncertainty of the covariate model is
+propagated to the distal estimates.
+
+```{r combined}
+fb <- tse_distal(fc, Zo ~ 1)
+fb
 ```
 
----
+## All steps in one call
+
+`tseLCA()` runs the three steps from one formula,
+`indicators ~ covariates | distal outcome`. The components remain available
+through `measurement()`, `classification()`, `covariate()`, and `distal()`.
+
+```{r one-call}
+fit <- tseLCA(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ Zp | Zo, data = d, nclass = 3)
+all.equal(coef(fit), coef(fb))
+round(classification(fit)$D, 3)
+```
+
+## A measurement model from another sample
+
+Because the measurement model is fixed in Step 1, it can be estimated on one
+sample and applied to another, for example when covariates are observed only
+in a subsample. `tse_classify(m, newdata = ...)` classifies the new sample
+with the existing measurement model; the Step-1 uncertainty in later steps is
+that of the sample the model was estimated on.
+
+```{r multisample}
+sub <- d[1:300, ]
+fc_sub <- tse_covariate(tse_classify(m, newdata = sub), ~ Zp)
+coef(fc_sub)
+nobs(fc_sub)
+```
+
+## Missing data and indicator coding
+
+Indicators can be factors, logicals, character variables, or numeric codes in
+any coding; their categories are stored with the model and reused on new
+data. With `missing = "fiml"`, observations with some missing indicators are
+kept (full-information maximum likelihood); the default drops them. Rows with
+a missing covariate or distal outcome are dropped from that Step-3 model only.
+
+```{r missing}
+d_miss <- d
+set.seed(2)
+d_miss$Y1[sample(nrow(d), 100)] <- NA
+d_miss$Y2 <- factor(d_miss$Y2, labels = c("no", "yes"))
+m_fiml <- tse_lca(f_items, data = d_miss, nclass = 3, missing = "fiml")
+nobs(m_fiml)
+nobs(tse_lca(f_items, data = d_miss, nclass = 3))
+```
+
+## Estimation settings
+
+`tse_control()` collects the numerical settings: iteration limits and
+tolerances for Step 1 and Step 3, random starts, the boundary tolerance for
+the Step-1 variance, and the information matrix used for Step-3 standard
+errors.
+
+```{r control}
+tse_control(step1.maxit = 10000, n_init = 20)
+```
+
+## Migrating from tseLCA 1.x
+
+`three_step()` still works (with the same estimates) but is deprecated. The
+table maps its arguments to the new interface.
+
+| `three_step()` | tseLCA 2.0 |
+|---|---|
+| `Y.names`, `n_classes` | `tse_lca(cbind(...) ~ 1, nclass = )` |
+| `Zp.names` | `tse_covariate(, ~ ...)` |
+| `Zo.name`, `family` | `tse_distal(, outcome ~ 1, family = )` |
+| `step1` (measurement model from another sample) | `tse_classify(, newdata = )` |
+| `startval`, `n_init` | `tse_lca(start = )`, `tse_control(n_init = )` |
+| `use.modal.assignment` | `tse_classify(assignment = )` |
+| `use.bch`, `use.simple.cov` | `method = "BCH"`, `se = "robust"` |
+| `rebase` | `ref`, or `relevel()` |
+| `incomplete` | `tse_lca(missing = "fiml")` |
+| other tuning arguments | `tse_control()` |
+| `get.twostep.vcov` | `tse_twostep(se = TRUE)` |
+
+`coef()` now returns a named vector matching `vcov()` (use
+`coef(fit, matrix = TRUE)` for the coefficient matrix), so `confint()` works.
+See `NEWS.md` for all changes, including bug fixes affecting results for
+polytomous indicators, Gaussian distal outcomes, and proportional-assignment
+ML distal models.
 
 ## References
+
+Bakk, Z., & Kuha, J. (2018). Two-step estimation of models between latent
+classes and external variables. *Psychometrika*, 83(4), 871--892.
+
+Bakk, Z., Oberski, D. L., & Vermunt, J. K. (2014). Relating latent class
+assignments to external variables: Standard errors for correct inference.
+*Political Analysis*, 22(4), 520--540.
 
 Bakk, Z., Tekle, F. B., & Vermunt, J. K. (2013). Estimating the association
 between latent class membership and external variables using bias-adjusted
 three-step approaches. *Sociological Methodology*, 43(1), 272--311.
-<https://doi.org/10.1177/0081175012470644>
-
-Bakk, Z., & Kuha, J. (2018). Two-step estimation of models between latent
-classes and external variables. *Psychometrika*, 83(4), 871--892.
-<https://doi.org/10.1007/s11336-017-9592-7>
 
 Bolck, A., Croon, M., & Hagenaars, J. (2004). Estimating latent structure
 models with categorical variables: One-step versus three-step estimators.
-*Political Analysis*, 12(1), 3--27. <https://doi.org/10.1093/pan/mph001>
+*Political Analysis*, 12(1), 3--27.
 
-Lyrvall, J., Di Mari, R., Bakk, Z., Oser, J., & Kuha, J. (2025). Multilevel
-latent class analysis: State-of-the-art methodologies and their implementation
-in the R package multilevLCA. *Multivariate Behavioral Research*, 60(4),
-731--747. <https://doi.org/10.1080/00273171.2025.2473935>
+Masyn, K. E. (2013). Latent class analysis and finite mixture modeling. In
+T. D. Little (Ed.), *The Oxford Handbook of Quantitative Methods*, Vol. 2,
+551--611. Oxford University Press.
+
+Nylund, K. L., Asparouhov, T., & Muthén, B. O. (2007). Deciding on the number
+of classes in latent class analysis and growth mixture modeling: A Monte Carlo
+simulation study. *Structural Equation Modeling*, 14(4), 535--569.
 
 Vermunt, J. K. (2010). Latent class modeling with covariates: Two improved
 three-step approaches. *Political Analysis*, 18(4), 450--469.
-<https://doi.org/10.1093/pan/mpq025>
-
----
-
-```{r session-info}
-sessionInfo()
-```

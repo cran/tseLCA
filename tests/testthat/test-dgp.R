@@ -103,3 +103,25 @@ test_that("bk2018_params has all required fields with correct dimensions", {
   # separation_levels has low/mid/high
   expect_true(all(c("low", "mid", "high") %in% names(p$separation_levels)))
 })
+
+test_that("generate_all_conditions() builds the nested simulation design", {
+  ds <- generate_all_conditions(
+    n_rep = 2L, base_seed = 3L, scenarios = c("covariate", "distal"),
+    sep_levels = c("low", "high"), sample_sizes = c(100L, 200L), verbose = FALSE
+  )
+  expect_named(ds, c("covariate", "distal"))
+  expect_named(ds$covariate, c("low", "high"))
+  expect_named(ds$distal$high, c("100", "200"))
+  expect_length(ds$covariate$low[["200"]], 2L)
+  one <- ds$distal$high[["100"]][[1]]
+  expect_equal(nrow(one), 100L)
+  expect_true(all(c(paste0("Y", 1:6), "X", "Zo") %in% names(one)))
+  expect_true("Zp" %in% names(ds$covariate$low[["200"]][[2]]))
+  # replicates differ; the design is reproducible from the base seed
+  expect_false(identical(ds$covariate$low[["100"]][[1]], ds$covariate$low[["100"]][[2]]))
+  ds2 <- generate_all_conditions(
+    n_rep = 2L, base_seed = 3L, scenarios = c("covariate", "distal"),
+    sep_levels = c("low", "high"), sample_sizes = c(100L, 200L), verbose = FALSE
+  )
+  expect_identical(ds2, ds)
+})

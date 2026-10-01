@@ -8,88 +8,64 @@
 
 ## Overview
 
-**tseLCA** (*Three-Step Estimation for Latent Class Analysis*) introduces bias-adjusted three-step estimation for structural latent class models in R. The package provides a comprehensive framework for estimating latent class models with covariates and distal outcomes while preserving the measurement structure established during class formation.
+**tseLCA** (*Three-Step Estimation for Latent Class Analysis*) relates latent classes to covariates and distal outcomes by bias-adjusted three-step estimation.
 
-Building upon the efficient measurement-model estimation procedures implemented in **multilevLCA**, **tseLCA** extends existing functionality through modern three-step estimators, classification-error corrections, and variance estimation procedures that appropriately account for uncertainty from the latent class measurement stage.
+1. **Measurement model** (`tse_lca()`). The latent classes are estimated from the indicators alone, and the number of classes is chosen from a class-enumeration table.
+2. **Classification** (`tse_classify()`). Observations are assigned to classes, and the classification error is estimated.
+3. **Structural model** (`tse_covariate()`, `tse_distal()`). The classes are related to covariates and/or distal outcomes, with the ML (Vermunt 2010) or BCH (Bolck, Croon & Hagenaars 2004) correction for classification error.
 
-## Key Features
+Because the measurement model is fixed before any structural variable enters, covariates and outcomes cannot change what the classes mean. This is the key difference from one-step estimation (e.g. **poLCA**), where the class solution can shift with every change to the structural model. The standard errors of the structural estimates account for the uncertainty of the measurement model (Bakk, Oberski & Vermunt 2014). Measurement models are estimated with **multilevLCA**.
 
-### Bias-Adjusted Three-step Estimation
+## Features
 
-**tseLCA** is the first R package to provide a unified implementation of modern bias-adjusted three-step estimators for latent class analysis. In contrast to traditional one-step approaches (implemented by the popular package, **poLCA**), where the inclusion of covariates may alter the underlying latent class definitions, three-step methods preserve the measurement model estimated in the first stage and subsequently adjust for classification error when estimating structural relationships.
-
-The package implements both BCH- and ML-based three-step estimators with sandwich variance estimators that propagate uncertainty from the measurement model through the classification-error correction process.
-
-### Flexible Measurement and Structural Samples
-
-Unlike conventional latent class software that uses a one-step estimation approach, **tseLCA** allows measurement and structural models to be estimated using different datasets. This flexibility enables researchers to calibrate a measurement model on a primary or reference sample and subsequently apply the resulting class definitions to an external dataset.
-
-### Support for Multiple Distal Outcome Types
-
-**tseLCA** provides native support for a broad range of distal outcome distributions, including:
-
--   Continuous outcomes (Gaussian)
--   Count outcomes (Poisson)
--   Binary outcomes (Bernoulli)
--   Nominal categorical outcomes (multinomial).
-
-### Automated Model Optimization
-
-Latent class estimation is often susceptible to local maxima and convergence to suboptimal solutions. To improve estimation reliability, **tseLCA** incorporates automated diagnostic procedures that monitor model quality during measurement-model estimation.
-
-### Missing Data Handling
-
-Following a similar approach as **multilevLCA**, **tseLCA** employs Full-Information Maximum Likelihood (FIML) estimation to accommodate partially observed response patterns without discarding incomplete observations.
+- Class enumeration with AIC, BIC, SABIC, entropy, and class sizes.
+- ML and BCH three-step estimators, with modal or proportional assignment. The uncorrected estimator is also available, for comparison.
+- Standard errors corrected for the uncertainty of the measurement model.
+- Covariate formulas with factors, interactions, and transformations. Wald tests by term, predicted class probabilities, and any reference class.
+- Gaussian, Poisson, binomial, and multinomial distal outcomes, alone or combined with covariates, and an omnibus test of equality across classes.
+- Measurement models estimated on one sample and applied to another.
+- Indicators as factors, logicals, characters, or numeric codes. Full-information maximum likelihood for missing indicator values.
+- Standard R methods throughout: `summary()`, `coef()`, `vcov()`, `confint()`, `logLik()`, `AIC()`, `BIC()`, `predict()`, `plot()`, `update()`.
 
 ## Installation
 
-Simply install tseLCA from CRAN.
-
 ``` r
-# Install tseLCA from CRAN
 install.packages("tseLCA")
-```
 
-You can also install the development version of tseLCA from GitHub like so:
-
-``` r
-# Install developmental tseLCA from the GitHub repository
-if (!require("pak")) {
-  install.packages("pak")
-}
-
+# development version
+# install.packages("pak")
 pak::pak("SamLeeBYU/tseLCA")
 ```
 
-Then read the introductory vignette on this package's webpage here: <https://SamLeeBYU.github.io/tseLCA/articles/tseLCA-workflow.html>
-
 ## Example
-
-This is a basic example which shows you how to simulate data and run a three-step LCA with a covariate in a single function call:
 
 ``` r
 library(tseLCA)
 
-# 1. Generate synthetic data 
-# (3 classes, 6 dichotomous items, and a multinomial logit covariate 'Zp')
-d <- generate_data(
-  n = 500, 
-  separation = "high", 
-  scenario = "covariate", 
-  seed = 1
-)
+# Simulated data: six binary indicators, a covariate Zp, and a distal outcome Zo
+d <- generate_data(n = 1000, separation = "high", scenario = "covariate", seed = 1)
+d$Zo <- draw_Zo(d$X, bk2018_params$distal_params)
 
-# 2. Estimate the three-step model
-# This automatically fits the measurement model and estimates covariate effects
-fit <- three_step(
-  data = d,
-  Y.names = paste0("Y", 1:6),
-  n_classes = 3,
-  Zp.names = "Zp",
-  # Proportional assignment is recommended for better uncertainty propagation
-  use.modal.assignment = FALSE
-)
+# Step 1: choose the number of classes from the measurement model
+sel <- tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d, nclass = 1:4)
+sel
+m <- best_model(sel, criterion = "BIC")
 
-# 3. View the measurement and structural model estimates
-summary(fit)
+# Step 2: classification
+cl <- tse_classify(m)
+
+# Step 3: covariate and distal outcome models
+fc <- tse_covariate(cl, ~ Zp)
+summary(fc)
+fb <- tse_distal(fc, Zo ~ 1)
+summary(fb)
+
+# The same model in one call
+fit <- tseLCA(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ Zp | Zo, data = d, nclass = 3)
 ```
+
+See the [introductory vignette](https://SamLeeBYU.github.io/tseLCA/articles/tseLCA-workflow.html) for the full workflow.
+
+## Upgrading from tseLCA 1.x
+
+`three_step()` still works, with the same estimates, but is deprecated. Its help page, and the vignette, map each of its arguments to the new functions. Version 2.0.0 also fixes several estimation bugs; see [NEWS](NEWS.md).
