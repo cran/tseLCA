@@ -297,8 +297,20 @@ lca_step3.distal <- function(
         }
       }
 
+      # Inverse Hessian of the BCH pseudo log-likelihood at the estimates: the
+      # variance function of the family times the BCH class weights (the scale
+      # is 1 for Poisson and Binomial outcomes)
+      H_diag <- switch(
+        family,
+        gaussian = w_colsums / sigma2,
+        poisson = exp(beta) * w_colsums,
+        binomial = {
+          mu_val <- 1 / (1 + exp(-beta))
+          mu_val * (1 - mu_val) * w_colsums
+        }
+      )
       H.3.inv <- tryCatch(
-        diag(sigma2 / w_colsums),
+        diag(1 / H_diag),
         error = function(e) {
           warning("Hessian inversion failed. SEs will be NA.")
           matrix(NA_real_, iT, iT)
@@ -432,8 +444,9 @@ lca_step3.distal <- function(
 #' Class prior and assignment weights for the distal model
 #'
 #' Without covariates: the Step-1 class sizes and the Step-2 assignments. With
-#' covariates: the fitted P(X = t | Zp_i) as the prior, and assignment weights
-#' and classification errors recomputed with that covariate-adjusted prior.
+#' covariates: the fitted P(X = t | Zp_i) as the prior, with the Step-2
+#' assignment weights and classification errors unchanged (they depend on the
+#' indicators only).
 #'
 #' @return list(pi_adj = n x T prior, res_adj = list(w.is, p.wx_mat),
 #'   p.xz.cov = prior as a function of the covariate coefficients, Z_mat_cov =
@@ -474,14 +487,12 @@ lca_step3.distal <- function(
     pi_adj <- flat_prior
   }
 
-  res_adj <- compute_pwx_adj(
-    dat$Y.obs[rows, , drop = FALSE],
-    fit0,
-    dat$ivItemcat,
-    if (!is.null(dat$mDesign)) dat$mDesign[rows, , drop = FALSE] else NULL,
-    opts$use.modal.assignment,
-    pi_adj = pi_adj
-  )
+  # The assignment weights and the classification-error matrix are those of
+  # Step 2, which use the indicators only. The indicators do not depend on the
+  # covariates given the class, so P(W | X, Zp) = P(W | X) and only the class
+  # prior changes with the covariates. (Reassigning with the covariate-adjusted
+  # posteriors would make W depend on Zp and bias the class estimates.)
+  res_adj <- list(w.is = s2_for_dis$w.is, p.wx_mat = s2_for_dis$p.wx_mat)
   if (isTRUE(opts$uncorrected)) {
     res_adj$p.wx_mat <- diag(iT)
   }

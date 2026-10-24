@@ -28,7 +28,8 @@
 #' @return A `tseLCA_classify` object with components `posteriors` (n x T),
 #'   `classifications` (modal classes), `weights` (the assignment weights
 #'   \eqn{P(W = s \mid Y_i)}), `D` (the T x T classification-error matrix),
-#'   `entropy.R2` (computed from these posteriors), and `data`. Pass it to
+#'   `entropy.R2` (computed from these posteriors, relative to the entropy of
+#'   the class proportions), and `data`. Pass it to
 #'   the Step-3 functions.
 #'
 #' @references
@@ -135,11 +136,21 @@ tse_classify <- function(
 }
 
 #' Entropy R^2 of a matrix of posterior class probabilities
+#'
+#' One minus the mean posterior entropy relative to the entropy of the class
+#' proportions (Vermunt and Magidson), the definition used for the
+#' measurement model in `tse_lca()` and, with the covariate-adjusted class
+#' probabilities as the reference, in `tse_covariate()`. NA for one class.
 #' @noRd
 .entropy_R2 <- function(post) {
-  iT <- ncol(post)
-  p <- post[post > 0]
-  1 - sum(-p * log(p)) / (nrow(post) * log(iT))
+  if (ncol(post) < 2L) {
+    return(NA_real_)
+  }
+  h <- function(p) {
+    p <- p[p > 0]
+    -sum(p * log(p))
+  }
+  1 - mean(apply(post, 1L, h)) / h(colMeans(post))
 }
 
 #' @rdname tse_classify

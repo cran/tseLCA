@@ -520,6 +520,20 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
     return(.independence_vcov(object))
   }
   s1 <- object$measurement_model
+  if (isTRUE(s1$step1_external)) {
+    if (is.null(s1$step1_vcov)) {
+      stop(
+        "This measurement model was created by as_tse_lca() without `vcov`, so ",
+        "it has no variance matrix.",
+        call. = FALSE
+      )
+    }
+    V <- s1$step1_vcov
+    nms <- names(.measurement_coef(object))
+    dimnames(V) <- list(nms, nms)
+    attr(V, "parameterization") <- "log-ratio (unconstrained); NOT probabilities"
+    return(V)
+  }
   ref_idx <- if (!is.null(s1$ref_idx)) s1$ref_idx else 1L
   sample1 <- step1_sample(s1, s1$ivItemcat, ref_idx)
   if (is.null(sample1)) {

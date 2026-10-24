@@ -491,7 +491,7 @@ estimators correct for.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>cl <span class="ot">&lt;-</span> <span class="fu">tse_classify</span>(m)</span>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>cl</span>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; Latent class assignment (Step 2)</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt;   Classes: 3   Assignment: modal   N: 1000   Entropy R²: 0.8721</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt;   Classes: 3   Assignment: modal   N: 1000   Entropy R²: 0.8720</span></span>
 <span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; Classification error probabilities P(W = s | X = t)</span></span>
 <span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; (rows: true class X; columns: assigned class W)</span></span>
@@ -666,7 +666,7 @@ estimates.</p>
 <span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>fb</span>
 <span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="co">#&gt; Three-step latent class model: covariates and distal outcome</span></span>
 <span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a><span class="co">#&gt;   Classes: 3   Estimator: ML   Family: gaussian   N: 1000</span></span>
-<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="co">#&gt;   Log-lik: -4176.2103 (df = 26)   AIC: 8404.42   BIC: 8532.02</span></span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="co">#&gt;   Log-lik: -4176.1391 (df = 26)   AIC: 8404.28   BIC: 8531.88</span></span>
 <span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a><span class="co">#&gt; Covariate effects on class membership (multinomial logit):</span></span>
 <span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a><span class="co">#&gt;                Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
@@ -679,9 +679,9 @@ estimates.</p>
 <span id="cb19-15"><a href="#cb19-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb19-16"><a href="#cb19-16" tabindex="-1"></a><span class="co">#&gt; Distal outcome means by class:</span></span>
 <span id="cb19-17"><a href="#cb19-17" tabindex="-1"></a><span class="co">#&gt;       Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span id="cb19-18"><a href="#cb19-18" tabindex="-1"></a><span class="co">#&gt; mu_C1 -0.89181    0.05550 -16.070   &lt;2e-16 ***</span></span>
-<span id="cb19-19"><a href="#cb19-19" tabindex="-1"></a><span class="co">#&gt; mu_C2  1.05856    0.06580  16.087   &lt;2e-16 ***</span></span>
-<span id="cb19-20"><a href="#cb19-20" tabindex="-1"></a><span class="co">#&gt; mu_C3 -0.07797    0.05580  -1.397    0.162    </span></span>
+<span id="cb19-18"><a href="#cb19-18" tabindex="-1"></a><span class="co">#&gt; mu_C1 -0.89069    0.05563 -16.010   &lt;2e-16 ***</span></span>
+<span id="cb19-19"><a href="#cb19-19" tabindex="-1"></a><span class="co">#&gt; mu_C2  1.06501    0.06687  15.926   &lt;2e-16 ***</span></span>
+<span id="cb19-20"><a href="#cb19-20" tabindex="-1"></a><span class="co">#&gt; mu_C3 -0.08288    0.05691  -1.456    0.145    </span></span>
 <span id="cb19-21"><a href="#cb19-21" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
 <span id="cb19-22"><a href="#cb19-22" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span></code></pre></div>
 </div>
@@ -824,7 +824,9 @@ is deprecated. The table maps its arguments to the new interface.</p>
 coefficient matrix), so <code>confint()</code> works. See
 <code>NEWS.md</code> for all changes, including bug fixes affecting
 results for polytomous indicators, Gaussian distal outcomes, and
-proportional-assignment ML distal models.</p>
+proportional-assignment ML distal models (version 2.0.0), and for the
+combined covariate and distal model and the BCH standard errors of
+Poisson and Binomial distal outcomes (version 2.1.0).</p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>

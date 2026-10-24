@@ -415,7 +415,12 @@ three_step <- function(
   # -- Step 3: structural models -----------------------------------------------
   # Step-1 variance for the uncertainty correction (not needed for BCH or
   # robust-only standard errors)
-  Sigma.1 <- if (use.simple.cov || use.bch) {
+  no_vcov <- !(use.simple.cov || use.bch) && .lacks_step1_vcov(s1)
+  if (no_vcov) {
+    warning(.no_step1_vcov_warning(), call. = FALSE)
+    opts$use.simple.cov <- TRUE
+  }
+  Sigma.1 <- if (use.simple.cov || use.bch || no_vcov) {
     NULL
   } else {
     .step1_varmat(s1, dat, ref_idx, boundary.tol)

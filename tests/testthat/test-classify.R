@@ -40,7 +40,12 @@ test_that("assignment weights and classification errors are well formed", {
   # proportional assignment spreads more weight off the diagonal
   expect_true(all(diag(prop$D) < diag(modal$D)))
   p <- posterior(modal)
-  expect_equal(modal$entropy.R2, 1 - sum(-p * log(p)) / (nrow(p) * log(3)))
+  h <- function(x) -sum(x[x > 0] * log(x[x > 0]))
+  expect_equal(modal$entropy.R2, 1 - mean(apply(p, 1, h)) / h(colMeans(p)))
+  # the same definition as the Step-1 entropy R^2 of the measurement model
+  set.seed(1L)
+  sel <- tse_lca(f_items, data = d, nclass = 2:3)
+  expect_equal(modal$entropy.R2, as.data.frame(sel)$entropy.R2[2], tolerance = 1e-3)
 })
 
 test_that("newdata is classified with the fixed measurement model", {

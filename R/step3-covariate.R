@@ -56,7 +56,7 @@ lca_step3 <- function(
       if (
         nr >= max(em.maxIter / 5, 1) && #Wait a little bit before testing for PSD
           inherits(
-            tryCatch(chol(H), error = function(e) e),
+            tryCatch(chol(-H), error = function(e) e), # H is the Hessian: -H must be PSD
             "error"
           )
       ) {

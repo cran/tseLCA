@@ -158,11 +158,12 @@ test_that("item_probs() of a fitted model can be used as `start`", {
 
 test_that("as_tse_lca() rebuilds a measurement model from its parameters", {
   m <- sel[[3]]
-  m2 <- as_tse_lca(f_items, data = d, class_sizes = class_sizes(m), item_probs = item_probs(m))
+  m2 <- as_tse_lca(f_items, data = d, class_sizes = class_sizes(m), item_probs = item_probs(m),
+                   vcov = vcov(m))
   expect_s3_class(m2, "tseLCA_measurement")
   expect_equal(logLik(m2), logLik(m), tolerance = 1e-6)
   expect_equal(posterior(m2), posterior(m), tolerance = 1e-6)
-  expect_equal(vcov(m2), vcov(m), tolerance = 1e-4)
+  expect_equal(vcov(m2), vcov(m))
   fc <- tse_covariate(tse_classify(m), ~ Zp)
   fc2 <- tse_covariate(tse_classify(m2), ~ Zp)
   expect_equal(coef(fc2), coef(fc), tolerance = 1e-5)
@@ -182,6 +183,48 @@ test_that("as_tse_lca() rebuilds a measurement model from its parameters", {
   bad <- item_probs(mp)
   bad[1, 1] <- bad[1, 1] + 0.1
   expect_error(as_tse_lca(f_items, dp, class_sizes(mp), bad), "sum to one")
+})
+
+test_that("as_tse_lca() uses a given Step-1 variance, and falls back to robust SEs without one", {
+  m <- sel[[3]]
+  args <- list(f_items, data = d, class_sizes = class_sizes(m), item_probs = item_probs(m))
+  m_v <- do.call(as_tse_lca, c(args, list(vcov = vcov(m))))
+  m_0 <- do.call(as_tse_lca, args)
+
+  # the variance given is the one used; a wrong one changes the SEs
+  fc <- tse_covariate(tse_classify(m), ~ Zp)
+  fv <- tse_covariate(tse_classify(m_v), ~ Zp)
+  expect_equal(vcov(fv), vcov(fc), tolerance = 1e-5)
+  fv2 <- tse_covariate(tse_classify(do.call(as_tse_lca, c(args, list(vcov = 4 * vcov(m))))), ~ Zp)
+  expect_true(all(sqrt(diag(vcov(fv2))) > sqrt(diag(vcov(fv)))))
+  fd <- tse_distal(tse_classify(m_v, assignment = "proportional"), Zp ~ 1)
+  expect_equal(vcov(fd), vcov(tse_distal(tse_classify(m, assignment = "proportional"), Zp ~ 1)),
+               tolerance = 1e-5)
+
+  # no variance: warn once and report robust SEs
+  cl0 <- tse_classify(m_0)
+  expect_warning(f0 <- tse_covariate(cl0, ~ Zp), "without `vcov`")
+  expect_identical(f0$se, "robust")
+  expect_equal(vcov(f0), vcov(tse_covariate(cl0, ~ Zp, se = "robust")))
+  expect_warning(tse_distal(cl0, Zp ~ 1), "without `vcov`")
+  expect_no_warning(tse_covariate(cl0, ~ Zp, se = "robust"))
+  expect_no_warning(tse_covariate(cl0, ~ Zp, method = "BCH"))
+  expect_error(vcov(m_0), "without `vcov`")
+
+  # the variance follows the classes when the reference class changes
+  fr <- tse_covariate(tse_classify(m), ~ Zp, ref = 2)
+  frv <- tse_covariate(tse_classify(m_v), ~ Zp, ref = 2)
+  expect_equal(vcov(frv), vcov(fr), tolerance = 1e-5)
+
+  # input checks
+  V <- vcov(m)
+  expect_error(do.call(as_tse_lca, c(args, list(vcov = V[-1, -1]))), "numeric [0-9]+ x [0-9]+ matrix")
+  V_na <- V
+  V_na[1, 1] <- NA
+  expect_error(do.call(as_tse_lca, c(args, list(vcov = V_na))), "missing")
+  V_asym <- V
+  V_asym[1, 2] <- V_asym[1, 2] + 1
+  expect_error(do.call(as_tse_lca, c(args, list(vcov = V_asym))), "symmetric")
 })
 
 test_that("item_probs() and class_sizes() give delta-method standard errors", {

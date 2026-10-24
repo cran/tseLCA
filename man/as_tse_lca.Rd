@@ -9,6 +9,7 @@ as_tse_lca(
   data,
   class_sizes,
   item_probs,
+  vcov = NULL,
   missing = c("listwise", "fiml"),
   control = tse_control()
 )
@@ -27,6 +28,15 @@ to sum to one).}
 category of a polytomous item (\eqn{P(Y = k \mid X = t)}), in the order
 of the indicators.}
 
+\item{vcov}{Optional variance matrix of the Step-1 parameters, for
+corrected standard errors in Step 3. It refers to the unconstrained
+log-ratio parameters, in the layout of \code{\link[=vcov]{vcov()}} of a \code{\link[=tse_lca]{tse_lca()}} model:
+the class-size log-ratios \eqn{\log(\pi_t / \pi_1)}, \eqn{t = 2, \dots, T},
+then, class by class and item by item,
+\eqn{\log(P(Y = k \mid X = t) / P(Y = 0 \mid X = t))} for each category
+\eqn{k \ge 1}. Classes and items are in the order of \code{class_sizes} and
+of the indicators. Row and column names are ignored.}
+
 \item{missing, control}{As in \code{\link[=tse_lca]{tse_lca()}}.}
 }
 \value{
@@ -40,20 +50,33 @@ another program, reported in a publication, or saved from an earlier
 analysis.
 }
 \details{
-The Step-1 variance used for corrected standard errors in Step 3 is
-computed on \code{data} at the given parameters, which is valid when they are
-the maximum likelihood estimates for \code{data} (e.g. a model estimated on these
-data and saved). For parameters estimated on another sample, use
-\code{se = "robust"} in Step 3, or refit with \code{\link[=tse_lca]{tse_lca()}} using the parameters as
-\code{start}.
+Corrected standard errors in Step 3 (\code{se = "corrected"}) need the
+variance matrix of the Step-1 parameters, which can only come from the
+sample they were estimated on. A model from \code{as_tse_lca()} receives only the
+parameter values, so it uses the variance matrix given in \code{vcov}. Without
+\code{vcov}, Step 3 warns and reports robust standard errors (\code{se = "robust"}),
+which do not include the Step-1 uncertainty. \code{\link[=vcov]{vcov()}} of the model returns
+\code{vcov}, or an error if none was given.
+
+If the parameters are the maximum likelihood estimates for \code{data} (a model
+estimated on these data and saved), \code{vcov(m)} of the original \code{\link[=tse_lca]{tse_lca()}}
+model is the matching \code{vcov}. For parameters estimated on another sample,
+take the variance matrix from that estimation (e.g. Latent GOLD or Mplus
+output), or use \code{\link[=tse_classify]{tse_classify()}} with \code{newdata} on the original model.
 }
 \examples{
 d <- generate_data(500, "high", "covariate", seed = 1)
 m <- tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d, nclass = 3)
 
-# the same measurement model from its parameters
+# the same measurement model from its parameters and their variance
 m2 <- as_tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d,
-                 class_sizes = class_sizes(m), item_probs = item_probs(m))
+                 class_sizes = class_sizes(m), item_probs = item_probs(m),
+                 vcov = vcov(m))
 all.equal(logLik(m2), logLik(m), tolerance = 1e-6)
 coef(tse_covariate(tse_classify(m2), ~ Zp))
+
+# without `vcov`, Step 3 warns and reports robust standard errors
+m3 <- as_tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d,
+                 class_sizes = class_sizes(m), item_probs = item_probs(m))
+fit3 <- tse_covariate(tse_classify(m3), ~ Zp)
 }

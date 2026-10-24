@@ -93,8 +93,13 @@ tse_lca <- function(
     stop("`data` must be a data frame.", call. = FALSE)
   }
   Y.names <- .indicators_from_formula(formula)
-  if (!(is.numeric(nclass) && length(nclass) >= 1L && !anyNA(nclass) &&
-        all(nclass >= 1) && all(nclass == round(nclass)))) {
+  if (
+    !(is.numeric(nclass) &&
+      length(nclass) >= 1L &&
+      !anyNA(nclass) &&
+      all(nclass >= 1) &&
+      all(nclass == round(nclass)))
+  ) {
     stop("`nclass` must be one or more positive whole numbers.", call. = FALSE)
   }
   nclass <- sort(unique(as.integer(nclass)))
@@ -109,13 +114,19 @@ tse_lca <- function(
   # so random starts and `start` are not available with FIML on incomplete data.
   if (missing == "fiml" && anyNA(data[Y.names])) {
     if (!is.null(start)) {
-      stop("`start` cannot be used with missing = \"fiml\" when indicator values ",
-           "are missing (multilevLCA cannot initialize from it).", call. = FALSE)
+      stop(
+        "`start` cannot be used with missing = \"fiml\" when indicator values ",
+        "are missing (multilevLCA cannot initialize from it).",
+        call. = FALSE
+      )
     }
     if (!is.null(control$n_init)) {
-      warning("Random starts (`n_init`) are not available with missing = \"fiml\" ",
-              "when indicator values are missing; using multilevLCA's default ",
-              "initialization.", call. = FALSE)
+      warning(
+        "Random starts (`n_init`) are not available with missing = \"fiml\" ",
+        "when indicator values are missing; using multilevLCA's default ",
+        "initialization.",
+        call. = FALSE
+      )
       control$n_init <- NULL
     }
   }
@@ -130,13 +141,30 @@ tse_lca <- function(
     startval = start
   )
   rec <- .recode_indicators(data, Y.names)
-  dat <- .prepare_data(rec$data, Y.names, NULL, NULL, "gaussian", opts, rec$levels)
+  dat <- .prepare_data(
+    rec$data,
+    Y.names,
+    NULL,
+    NULL,
+    "gaussian",
+    opts,
+    rec$levels
+  )
 
   fit_one <- function(iT) {
     fit <- if (iT == 1L) {
       .fit_independence(dat)
     } else {
-      s1 <- .fit_step1(rec$data, Y.names, iT, NULL, NULL, 1L, opts, Y.levels = rec$levels)
+      s1 <- .fit_step1(
+        rec$data,
+        Y.names,
+        iT,
+        NULL,
+        NULL,
+        1L,
+        opts,
+        Y.levels = rec$levels
+      )
       s1 <- .attach_step1_data(s1, dat, 1L, fitted_here = TRUE)
       .new_measurement_fit(s1, dat, iT)
     }
@@ -175,15 +203,20 @@ tse_lca <- function(
   if (!identical(formula[[3L]], 1) && !identical(formula[[3L]], 1L)) {
     stop(
       "The measurement model has no covariates: its right-hand side must be `1` (",
-      usage, "). Covariates and distal outcomes are related to the classes in ",
+      usage,
+      "). Covariates and distal outcomes are related to the classes in ",
       "Step 3, with the measurement model held fixed.",
       call. = FALSE
     )
   }
   lhs <- formula[[2L]]
   if (!(is.call(lhs) && identical(lhs[[1L]], as.name("cbind")))) {
-    stop("The indicators must be given as `cbind(...)` on the left-hand side, ",
-         usage, ".", call. = FALSE)
+    stop(
+      "The indicators must be given as `cbind(...)` on the left-hand side, ",
+      usage,
+      ".",
+      call. = FALSE
+    )
   }
   args <- as.list(lhs)[-1L]
   if (!all(vapply(args, is.name, logical(1)))) {
@@ -194,8 +227,11 @@ tse_lca <- function(
     stop("A latent class model needs at least two indicators.", call. = FALSE)
   }
   if (anyDuplicated(items)) {
-    stop("Duplicated indicators: ", paste(unique(items[duplicated(items)]), collapse = ", "),
-         call. = FALSE)
+    stop(
+      "Duplicated indicators: ",
+      paste(unique(items[duplicated(items)]), collapse = ", "),
+      call. = FALSE
+    )
   }
   items
 }
@@ -228,7 +264,11 @@ tse_lca <- function(
     idx <- which(item_of == h)
     if (ivItemcat[h] == 2L) idx[2L] else idx
   }))
-  mPhi <- matrix(p[keep], ncol = 1L, dimnames = list(sprintf("P(%s|C)", cat_labels), "C1"))
+  mPhi <- matrix(
+    p[keep],
+    ncol = 1L,
+    dimnames = list(sprintf("P(%s|C)", cat_labels), "C1")
+  )
 
   npar <- sum(ivItemcat - 1L)
   n <- nrow(Y)
@@ -299,7 +339,11 @@ best_model <- function(object, ...) UseMethod("best_model")
 
 #' @rdname best_model
 #' @export
-best_model.tseLCA_select <- function(object, criterion = c("BIC", "AIC", "SABIC"), ...) {
+best_model.tseLCA_select <- function(
+  object,
+  criterion = c("BIC", "AIC", "SABIC"),
+  ...
+) {
   criterion <- match.arg(criterion)
   tab <- .subset2(object, "table")
   .subset2(object, "fits")[[which.min(tab[[criterion]])]]
@@ -311,9 +355,14 @@ best_model.tseLCA_select <- function(object, criterion = c("BIC", "AIC", "SABIC"
   fits <- .subset2(x, "fits")
   k <- as.character(i)
   if (!k %in% names(fits)) {
-    stop(sprintf(
-      "No %s-class model; fitted: %s.", k, paste(names(fits), collapse = ", ")
-    ), call. = FALSE)
+    stop(
+      sprintf(
+        "No %s-class model; fitted: %s.",
+        k,
+        paste(names(fits), collapse = ", ")
+      ),
+      call. = FALSE
+    )
   }
   fits[[k]]
 }
@@ -324,13 +373,33 @@ as.data.frame.tseLCA_select <- function(x, ...) .subset2(x, "table")
 
 #' @rdname best_model
 #' @export
-print.tseLCA_select <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+print.tseLCA_select <- function(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  ...
+) {
   tab <- .subset2(x, "table")
   cat("Latent class enumeration (measurement model)\n\n")
-  shown <- tab[, c("nclass", "logLik", "npar", "AIC", "BIC", "SABIC", "entropy.R2", "min.class")]
-  best <- vapply(c("AIC", "BIC", "SABIC"), function(cr) which.min(tab[[cr]]), integer(1))
+  shown <- tab[, c(
+    "nclass",
+    "logLik",
+    "npar",
+    "AIC",
+    "BIC",
+    "SABIC",
+    "entropy.R2",
+    "min.class"
+  )]
+  best <- vapply(
+    c("AIC", "BIC", "SABIC"),
+    function(cr) which.min(tab[[cr]]),
+    integer(1)
+  )
   for (cr in names(best)) {
-    shown[[cr]] <- paste0(format(round(tab[[cr]], 2), nsmall = 2), ifelse(seq_len(nrow(tab)) == best[[cr]], "*", " "))
+    shown[[cr]] <- paste0(
+      format(round(tab[[cr]], 2), nsmall = 2),
+      ifelse(seq_len(nrow(tab)) == best[[cr]], "*", " ")
+    )
   }
   print(shown, digits = digits, row.names = FALSE, right = TRUE)
   cat("\n* smallest value of each criterion. N =", tab$nobs[1L], "\n")
@@ -344,13 +413,25 @@ plot.tseLCA_select <- function(x, which = c("AIC", "BIC", "SABIC"), ...) {
   which <- match.arg(which, c("AIC", "BIC", "SABIC"), several.ok = TRUE)
   ic <- as.matrix(tab[, which, drop = FALSE])
   graphics::matplot(
-    tab$nclass, ic, type = "b", pch = seq_along(which), lty = seq_along(which),
-    col = 1, xlab = "Number of classes", ylab = "Information criterion",
-    xaxt = "n", ...
+    tab$nclass,
+    ic,
+    type = "b",
+    pch = seq_along(which),
+    lty = seq_along(which),
+    col = 1,
+    xlab = "Number of classes",
+    ylab = "Information criterion",
+    xaxt = "n",
+    ...
   )
   graphics::axis(1, at = tab$nclass)
-  graphics::legend("topright", legend = which, pch = seq_along(which),
-                   lty = seq_along(which), bty = "n")
+  graphics::legend(
+    "topright",
+    legend = which,
+    pch = seq_along(which),
+    lty = seq_along(which),
+    bty = "n"
+  )
   invisible(x)
 }
 
@@ -377,7 +458,12 @@ plot.tseLCA_select <- function(x, which = c("AIC", "BIC", "SABIC"), ...) {
 #' predict(m, newdata = d[1:5, ])
 #' predict(m, newdata = d[1:5, ], type = "class")
 #' @export
-predict.tseLCA_measurement <- function(object, newdata = NULL, type = c("posterior", "class"), ...) {
+predict.tseLCA_measurement <- function(
+  object,
+  newdata = NULL,
+  type = c("posterior", "class"),
+  ...
+) {
   type <- match.arg(type)
   if (is.null(newdata)) {
     post <- posterior(object)
@@ -390,12 +476,18 @@ predict.tseLCA_measurement <- function(object, newdata = NULL, type = c("posteri
     Y_exp <- expand_Y(Y, s1$ivItemcat)
     mDesign <- (!is.na(Y_exp)) * 1L
     Y_exp[is.na(Y_exp)] <- 0
-    post <- matrix(NA_real_, nrow(Y), object$n_classes,
-                   dimnames = list(rownames(newdata), paste0("C", seq_len(object$n_classes))))
+    post <- matrix(
+      NA_real_,
+      nrow(Y),
+      object$n_classes,
+      dimnames = list(rownames(newdata), paste0("C", seq_len(object$n_classes)))
+    )
     if (any(observed)) {
       post[observed, ] <- step1_posteriors(
-        Y_exp[observed, , drop = FALSE], mDesign[observed, , drop = FALSE],
-        s1$fit0, s1$ivItemcat
+        Y_exp[observed, , drop = FALSE],
+        mDesign[observed, , drop = FALSE],
+        s1$fit0,
+        s1$ivItemcat
       )
     }
   }
@@ -422,12 +514,19 @@ formula.tseLCA <- function(x, ...) {
 #' another program, reported in a publication, or saved from an earlier
 #' analysis.
 #'
-#' The Step-1 variance used for corrected standard errors in Step 3 is
-#' computed on `data` at the given parameters, which is valid when they are
-#' the maximum likelihood estimates for `data` (e.g. a model estimated on these
-#' data and saved). For parameters estimated on another sample, use
-#' `se = "robust"` in Step 3, or refit with [tse_lca()] using the parameters as
-#' `start`.
+#' Corrected standard errors in Step 3 (`se = "corrected"`) need the
+#' variance matrix of the Step-1 parameters, which can only come from the
+#' sample they were estimated on. A model from `as_tse_lca()` receives only the
+#' parameter values, so it uses the variance matrix given in `vcov`. Without
+#' `vcov`, Step 3 warns and reports robust standard errors (`se = "robust"`),
+#' which do not include the Step-1 uncertainty. [vcov()] of the model returns
+#' `vcov`, or an error if none was given.
+#'
+#' If the parameters are the maximum likelihood estimates for `data` (a model
+#' estimated on these data and saved), `vcov(m)` of the original [tse_lca()]
+#' model is the matching `vcov`. For parameters estimated on another sample,
+#' take the variance matrix from that estimation (e.g. Latent GOLD or Mplus
+#' output), or use [tse_classify()] with `newdata` on the original model.
 #'
 #' @param formula `cbind(Y1, Y2, ...) ~ 1`, as in [tse_lca()].
 #' @param data A data frame.
@@ -438,6 +537,14 @@ formula.tseLCA <- function(x, ...) {
 #'   (\eqn{P(Y = 1 \mid X = t)}, where 1 is the item's second category) or per
 #'   category of a polytomous item (\eqn{P(Y = k \mid X = t)}), in the order
 #'   of the indicators.
+#' @param vcov Optional variance matrix of the Step-1 parameters, for
+#'   corrected standard errors in Step 3. It refers to the unconstrained
+#'   log-ratio parameters, in the layout of [vcov()] of a [tse_lca()] model:
+#'   the class-size log-ratios \eqn{\log(\pi_t / \pi_1)}, \eqn{t = 2, \dots, T},
+#'   then, class by class and item by item,
+#'   \eqn{\log(P(Y = k \mid X = t) / P(Y = 0 \mid X = t))} for each category
+#'   \eqn{k \ge 1}. Classes and items are in the order of `class_sizes` and
+#'   of the indicators. Row and column names are ignored.
 #' @param missing,control As in [tse_lca()].
 #'
 #' @return A `tseLCA_measurement` object, usable like one from [tse_lca()].
@@ -445,17 +552,24 @@ formula.tseLCA <- function(x, ...) {
 #' d <- generate_data(500, "high", "covariate", seed = 1)
 #' m <- tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d, nclass = 3)
 #'
-#' # the same measurement model from its parameters
+#' # the same measurement model from its parameters and their variance
 #' m2 <- as_tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d,
-#'                  class_sizes = class_sizes(m), item_probs = item_probs(m))
+#'                  class_sizes = class_sizes(m), item_probs = item_probs(m),
+#'                  vcov = vcov(m))
 #' all.equal(logLik(m2), logLik(m), tolerance = 1e-6)
 #' coef(tse_covariate(tse_classify(m2), ~ Zp))
+#'
+#' # without `vcov`, Step 3 warns and reports robust standard errors
+#' m3 <- as_tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d,
+#'                  class_sizes = class_sizes(m), item_probs = item_probs(m))
+#' fit3 <- tse_covariate(tse_classify(m3), ~ Zp)
 #' @export
 as_tse_lca <- function(
   formula,
   data,
   class_sizes,
   item_probs,
+  vcov = NULL,
   missing = c("listwise", "fiml"),
   control = tse_control()
 ) {
@@ -465,56 +579,108 @@ as_tse_lca <- function(
     stop("`data` must be a data frame.", call. = FALSE)
   }
   Y.names <- .indicators_from_formula(formula)
-  opts <- .opts_from_control(control, incomplete = missing == "fiml",
-                             include.intercept = TRUE)
+  opts <- .opts_from_control(
+    control,
+    incomplete = missing == "fiml",
+    include.intercept = TRUE
+  )
   rec <- .recode_indicators(data, Y.names)
-  dat <- .prepare_data(rec$data, Y.names, NULL, NULL, "gaussian", opts, rec$levels)
+  dat <- .prepare_data(
+    rec$data,
+    Y.names,
+    NULL,
+    NULL,
+    "gaussian",
+    opts,
+    rec$levels
+  )
   ivItemcat <- dat$ivItemcat
 
   pi_t <- as.numeric(class_sizes)
   iT <- length(pi_t)
   if (iT < 2L || anyNA(pi_t) || any(pi_t <= 0)) {
-    stop("`class_sizes` must be two or more positive proportions.", call. = FALSE)
+    stop(
+      "`class_sizes` must be two or more positive proportions.",
+      call. = FALSE
+    )
   }
   pi_t <- pi_t / sum(pi_t)
   phi <- as.matrix(item_probs)
   n_rows <- sum(ifelse(ivItemcat == 2L, 1L, ivItemcat))
   if (!identical(dim(phi), c(n_rows, iT))) {
-    stop(sprintf(
-      "`item_probs` must be a %d x %d matrix (item rows as in item_probs(), one column per class).",
-      n_rows, iT
-    ), call. = FALSE)
+    stop(
+      sprintf(
+        "`item_probs` must be a %d x %d matrix (item rows as in item_probs(), one column per class).",
+        n_rows,
+        iT
+      ),
+      call. = FALSE
+    )
   }
   if (anyNA(phi) || any(phi <= 0 | phi >= 1)) {
-    stop("`item_probs` must be probabilities strictly between 0 and 1.", call. = FALSE)
+    stop(
+      "`item_probs` must be probabilities strictly between 0 and 1.",
+      call. = FALSE
+    )
   }
   full <- expand_Phi(phi, ivItemcat)
   item_of <- rep(seq_along(ivItemcat), ivItemcat)
   sums <- apply(full, 2L, function(p) tapply(p, item_of, sum))
   if (any(abs(sums - 1) > 1e-6)) {
-    stop("The category probabilities of each polytomous item must sum to one in each class.",
-         call. = FALSE)
+    stop(
+      "The category probabilities of each polytomous item must sum to one in each class.",
+      call. = FALSE
+    )
   }
 
   labels <- unlist(lapply(seq_along(ivItemcat), function(h) {
-    if (ivItemcat[h] == 2L) Y.names[h] else paste0(Y.names[h], ".", seq_len(ivItemcat[h]) - 1L)
+    if (ivItemcat[h] == 2L) {
+      Y.names[h]
+    } else {
+      paste0(Y.names[h], ".", seq_len(ivItemcat[h]) - 1L)
+    }
   }))
   dimnames(phi) <- list(sprintf("P(%s|C)", labels), paste0("C", seq_len(iT)))
+  npar <- (iT - 1L) + iT * sum(ivItemcat - 1L)
+  if (!is.null(vcov)) {
+    vcov <- .check_step1_vcov(vcov, npar)
+  }
 
-  log_joint <- sweep(log_lik_matrix(dat$Y.obs, full, dat$mDesign), 2L, log(pi_t), "+")
+  log_joint <- sweep(
+    log_lik_matrix(dat$Y.obs, full, dat$mDesign),
+    2L,
+    log(pi_t),
+    "+"
+  )
   row_max <- apply(log_joint, 1L, max)
   llik <- sum(row_max + log(rowSums(exp(log_joint - row_max))))
-  npar <- (iT - 1L) + iT * sum(ivItemcat - 1L)
   fit0 <- list(
-    vPi = matrix(pi_t, iT, 1L, dimnames = list(sprintf("P(C%d)", seq_len(iT)), "")),
+    vPi = matrix(
+      pi_t,
+      iT,
+      1L,
+      dimnames = list(sprintf("P(C%d)", seq_len(iT)), "")
+    ),
     mPhi = phi,
     LLKSeries = matrix(llik),
     AIC = -2 * llik + 2 * npar,
     BIC = -2 * llik + npar * log(nrow(dat$Y.obs))
   )
-  fit0$R2entr <- .entropy_R2(step1_posteriors(dat$Y.obs, dat$mDesign, fit0, ivItemcat))
+  fit0$R2entr <- .entropy_R2(step1_posteriors(
+    dat$Y.obs,
+    dat$mDesign,
+    fit0,
+    ivItemcat
+  ))
 
-  s1 <- .attach_step1_data(list(fit0 = fit0, fitZ = NULL), dat, 1L, fitted_here = TRUE)
+  s1 <- .attach_step1_data(
+    list(fit0 = fit0, fitZ = NULL),
+    dat,
+    1L,
+    fitted_here = TRUE
+  )
+  s1$step1_external <- TRUE
+  s1$step1_vcov <- vcov
   fit <- .new_measurement_fit(s1, dat, iT)
   fit$call <- cl
   fit$formula <- formula

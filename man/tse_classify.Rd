@@ -37,7 +37,8 @@ every class with its posterior probability as weight.}
 A \code{tseLCA_classify} object with components \code{posteriors} (n x T),
 \code{classifications} (modal classes), \code{weights} (the assignment weights
 \eqn{P(W = s \mid Y_i)}), \code{D} (the T x T classification-error matrix),
-\code{entropy.R2} (computed from these posteriors), and \code{data}. Pass it to
+\code{entropy.R2} (computed from these posteriors, relative to the entropy of
+the class proportions), and \code{data}. Pass it to
 the Step-3 functions.
 }
 \description{

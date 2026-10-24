@@ -1,3 +1,43 @@
+# tseLCA 2.1.0
+
+- Bug fix: the standard errors of the BCH estimator of Poisson and Binomial
+  distal outcomes used the inverse Hessian of the Gaussian case (a within-class
+  variance divided by the BCH class weights) and were far too large or too
+  small. They now use the variance function of the family. The point estimates
+  and the Gaussian and multinomial results are unchanged.
+- Bug fix: the safeguard of the BCH Newton-Raphson loop for covariate effects
+  checked that the Hessian, which is negative definite, was positive
+  semi-definite, and so stopped with "Hessian is not positive semi-definite"
+  whenever the loop ran past a fifth of `step3.maxit` iterations, whatever the
+  class separation. It now checks the negative Hessian. Fits that do not
+  converge now stop with "BCH NR reached maximum iterations" instead.
+- Bug fix: in the combined covariate and distal model (`tse_distal()` of a
+  `tse_covariate()` fit), the respondents were reassigned to classes with the
+  covariate-adjusted posteriors, and the classification-error matrix was
+  computed from those assignments. The assignments then depended on the
+  covariates given the class, which biased the class means of the distal
+  outcome (about -0.08 for a mean of 1 at n = 1000, mid separation). The model
+  now keeps the Step-2 assignments and classification errors, which use the
+  indicators only, and uses the covariate-adjusted class probabilities as the
+  prior, as the corrected standard errors assume.
+- `tse_classify()` now reports the entropy R^2 as the measurement model does
+  (relative to the entropy of the class proportions, as in Latent GOLD),
+  instead of relative to log(T). `as_tse_lca()` models use the same definition.
+- `as_tse_lca()` has a new argument `vcov`: the variance matrix of the Step-1
+  parameters, in the layout of `vcov()` of a `tse_lca()` model. Corrected
+  standard errors in Step 3 now use it. Before, the Step-1 variance of such a
+  model was recomputed at the given parameters on `data`, which is only valid
+  when they are the maximum likelihood estimates for `data`. For parameters
+  estimated on another sample, the correction was wrong: too large when `data`
+  is smaller than that sample, too small when it is larger.
+- Without `vcov`, Step 3 (`tse_covariate()`, `tse_distal()`) of an
+  `as_tse_lca()` model gives a warning and reports robust standard errors
+  (`se = "robust"`), which do not include the Step-1 uncertainty. `vcov()` of
+  such a model is an error, since it has no variance matrix.
+- To use a measurement model estimated on one sample with another, the
+  `newdata` argument of `tse_classify()` on the original `tse_lca()` model
+  keeps the original Step-1 variance.
+
 # tseLCA 2.0.0
 
 ## Step-wise interface

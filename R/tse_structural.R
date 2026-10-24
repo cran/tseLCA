@@ -130,7 +130,9 @@ tse_covariate <- function(
 #' for the classification error of the Step-2 class assignments (Bakk,
 #' Tekle, and Vermunt 2013). Given a covariate model from [tse_covariate()],
 #' the class prior depends on the covariates and the covariate-model
-#' uncertainty is propagated to the distal estimates.
+#' uncertainty is propagated to the distal estimates. The Step-2 assignments
+#' and classification errors are those of the classification (they use the
+#' indicators only); only the class prior is covariate-adjusted.
 #'
 #' @details
 #' The class-specific parameters are means (`gaussian`, with a common
@@ -401,13 +403,18 @@ tse_twostep <- function(object, formula, ref = 1, se = FALSE, control = NULL) {
     if (!is.null(s2$cov)) s2$cov$p.wx_mat <- diag(iT)
     if (!is.null(s2$dis)) s2$dis$p.wx_mat <- diag(iT)
   }
-  Sigma.1 <- if (opts$use.simple.cov || opts$use.bch) {
+  no_vcov <- !(opts$use.simple.cov || opts$use.bch) && .lacks_step1_vcov(s1)
+  Sigma.1 <- if (opts$use.simple.cov || opts$use.bch || no_vcov) {
     NULL
   } else {
     .step1_varmat(s1, dat, ref_idx, opts$boundary.tol)
   }
-  se_fallback <- !is.null(Sigma.1) && anyNA(Sigma.1)
-  if (se_fallback) {
+  if (no_vcov) {
+    warning(.no_step1_vcov_warning(), call. = FALSE)
+    opts$use.simple.cov <- TRUE
+  }
+  se_fallback <- no_vcov || (!is.null(Sigma.1) && anyNA(Sigma.1))
+  if (se_fallback && !no_vcov) {
     warning(
       "The Step-1 information matrix is singular, so the standard errors cannot be ",
       "corrected for the Step-1 uncertainty; robust standard errors are reported.",

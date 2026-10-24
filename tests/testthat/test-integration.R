@@ -891,10 +891,9 @@ test_that("Step-2 covariate-uncertainty propagation is actually wired through fo
   }
   pi_adj <- p.xz_dis(matrix(s3.par, ncol = 2))
 
-  res_adj <- compute_pwx_adj(
-    cd$Y.obs[cd$keep_step3_Zo_in_Y, , drop = FALSE], fit0, cd$ivItemcat,
-    NULL, TRUE, pi_adj = pi_adj
-  )
+  # the combined model keeps the Step-2 assignments and classification errors;
+  # only the class prior is covariate-adjusted
+  res_adj <- list(w.is = s2_for_dis$w.is, p.wx_mat = s2_for_dis$p.wx_mat)
   Y_cat_dis <- cd$Zo_mat[, 1L]
   C <- length(levels(factor(d2$Zcat)))
 
@@ -903,6 +902,9 @@ test_that("Step-2 covariate-uncertainty propagation is actually wired through fo
     w.is_cc = res_adj$w.is, pwx = res_adj$p.wx_mat, em.maxIter = 500L,
     vPi = fit0$vPi, pi_mat = pi_adj
   )
+  # the fitted estimates are those of the model with the Step-2 assignments
+  expect_equal(unname(coef(fit, component = "distal")), as.vector(s3.distal$res$par),
+               tolerance = 1e-6)
   Sigma.1 <- lca_indiv_varmat(
     cd$Y.obs, cd$mDesign, fit0, cd$ivItemcat, boundary.tol = 1e-2
   )$Varmat

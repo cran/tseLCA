@@ -136,12 +136,83 @@ step1_sample <- function(s1, ivItemcat, ref_idx = 1L) {
   s1
 }
 
+#' Validate a user-supplied Step-1 variance matrix (log-ratio parameters)
+#' @noRd
+.check_step1_vcov <- function(V, npar) {
+  if (!is.matrix(V) || !is.numeric(V) || !identical(dim(V), c(npar, npar))) {
+    stop(sprintf(
+      "`vcov` must be a numeric %d x %d matrix (the variance of the Step-1 log-ratio parameters, as in vcov() of a tse_lca() model).",
+      npar, npar
+    ), call. = FALSE)
+  }
+  if (anyNA(V) || any(!is.finite(V))) {
+    stop("`vcov` must not contain missing or infinite values.", call. = FALSE)
+  }
+  if (max(abs(V - t(V))) > 1e-6 * max(1, max(abs(V)))) {
+    stop("`vcov` must be symmetric.", call. = FALSE)
+  }
+  if (any(diag(V) < 0)) {
+    stop("`vcov` must have non-negative variances on its diagonal.", call. = FALSE)
+  }
+  V <- (V + t(V)) / 2
+  dimnames(V) <- NULL
+  V
+}
+
+#' Does a measurement model lack the variance needed for corrected SEs?
+#'
+#' TRUE for a model from as_tse_lca() given without `vcov`: its parameters
+#' were not estimated on the stored sample, so Sigma.1 cannot be computed.
+#' @noRd
+.lacks_step1_vcov <- function(s1) {
+  isTRUE(s1$step1_external) && is.null(s1$step1_vcov)
+}
+
+.no_step1_vcov_warning <- function() {
+  paste0(
+    "The measurement model was created by as_tse_lca() without `vcov`, so the ",
+    "standard errors cannot be corrected for the Step-1 uncertainty; robust ",
+    "standard errors are reported. Supply the variance matrix of the Step-1 ",
+    "parameters with as_tse_lca(vcov = )."
+  )
+}
+
+#' Step-1 variance with the classes reordered so that `ref_idx` comes first
+#'
+#' `V` is the variance of (log(pi_t / pi_1), t = 2..T; then, class by class,
+#' the m free item log-ratios), as in vcov() of a measurement model. After
+#' permute_fit0_classes() the parameters are the same functions of the
+#' permuted classes, so the variance transforms as A V A'.
+#' @noRd
+.rebase_step1_vcov <- function(V, ref_idx, iT) {
+  if (ref_idx == 1L) {
+    return(V)
+  }
+  m <- (nrow(V) - (iT - 1L)) %/% iT
+  ord <- c(ref_idx, seq_len(iT)[-ref_idx])
+  A <- matrix(0, nrow(V), ncol(V))
+  for (j in 2:iT) {
+    if (ord[j] != 1L) A[j - 1L, ord[j] - 1L] <- 1
+    if (ref_idx != 1L) A[j - 1L, ref_idx - 1L] <- A[j - 1L, ref_idx - 1L] - 1
+  }
+  for (j in seq_len(iT)) {
+    to <- (iT - 1L) + (j - 1L) * m + seq_len(m)
+    from <- (iT - 1L) + (ord[j] - 1L) * m + seq_len(m)
+    A[cbind(to, from)] <- 1
+  }
+  A %*% V %*% t(A)
+}
+
 #' Step-1 variance matrix (Sigma.1) of a measurement model
 #'
 #' Computed on the Step-1 sample stored with the model (step1_sample()),
-#' falling back to the current sample.
+#' falling back to the current sample. A model with externally given
+#' parameters (as_tse_lca()) uses the variance matrix supplied with it.
 #' @noRd
 .step1_varmat <- function(s1, dat, ref_idx, boundary.tol) {
+  if (isTRUE(s1$step1_external)) {
+    return(.rebase_step1_vcov(s1$step1_vcov, ref_idx, length(s1$fit0$vPi)))
+  }
   sample1 <- step1_sample(s1, dat$ivItemcat, ref_idx)
   if (is.null(sample1)) {
     sample1 <- list(
