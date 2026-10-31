@@ -203,11 +203,15 @@ lca_indiv_varmat <- function(
   for (h in which(ivItemcat > 2L)) {
     rows_h <- which(free_idx >= starts[h] & free_idx < starts[h] + ivItemcat[h])
     for (t in seq_len(iT)) {
-      if (!phi_bdry[starts[h], t]) next
+      if (!phi_bdry[starts[h], t]) {
+        next
+      }
       cols <- (iT - 1L) + (t - 1L) * n_free_phi + rows_h
       cols <- match(cols, active)
       cols <- cols[!is.na(cols)]
-      if (length(cols) < 1L) next
+      if (length(cols) < 1L) {
+        next
+      }
       v <- numeric(length(active))
       v[cols] <- 1
       null_dirs[[length(null_dirs) + 1L]] <- v
@@ -401,7 +405,9 @@ lca_vcov_distal <- function(
   }
 
   if (is.null(unit_scores)) {
-    stop("lca_vcov_distal(): `unit_scores` is required for ML uncertainty propagation.")
+    stop(
+      "lca_vcov_distal(): `unit_scores` is required for ML uncertainty propagation."
+    )
   }
   # Per-record posteriors and unit scores at the estimates; the Step-1 (C1)
   # and Step-2 (C_mat) cross-derivatives are derived in R/distal-ml.R.
@@ -482,7 +488,7 @@ lca_vcov_distal_multinomial <- function(
   meat <- crossprod(J.3)
 
   if (use.bch || use.simple.cov) {
-    return(H.3.inv %*% meat %*% H.3.inv)
+    return(H.3.inv %*% meat %*% t(H.3.inv))
   }
 
   pi_hat <- matrix(theta_hat, nrow = iT, ncol = C)
@@ -504,12 +510,16 @@ lca_vcov_distal_multinomial <- function(
     }
   )
 
-  step1.uncertainty <- cross$C1 %*% s2$J.2 %*% Sigma.1 %*% t(s2$J.2) %*% t(cross$C1)
+  step1.uncertainty <- cross$C1 %*%
+    s2$J.2 %*%
+    Sigma.1 %*%
+    t(s2$J.2) %*%
+    t(cross$C1)
   step2.uncertainty <- if (!is.null(cross$C_mat)) {
     cross$C_mat %*% Sigma.3 %*% t(cross$C_mat)
   } else {
     matrix(0, n_par, n_par)
   }
 
-  H.3.inv %*% (meat + step1.uncertainty + step2.uncertainty) %*% H.3.inv
+  H.3.inv %*% (meat + step1.uncertainty + step2.uncertainty) %*% t(H.3.inv)
 }

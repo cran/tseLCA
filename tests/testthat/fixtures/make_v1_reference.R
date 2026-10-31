@@ -32,6 +32,14 @@
 #     Jacobians. Corrected ML variances change (covariate SEs +0-12% here;
 #     distal barely); estimates, robust/BCH variances, and fit statistics are
 #     unchanged.
+#   - 2.1.0: the combined covariate and distal model keeps the Step-2
+#     assignments and classification errors instead of reassigning with the
+#     covariate-adjusted posteriors. Only both_ml_prop was regenerated (in
+#     2.1.1, when the stale entry was found); its distal estimates, variance,
+#     sigma2, log-likelihood, AIC and BIC change, its covariate part does not.
+#   - 2.1.1: the ML multinomial distal variance uses t(H^-1) as the right-hand
+#     bread (H is asymmetric). Only dis_multinomial was regenerated, and only
+#     its vcov changes.
 
 pkgload::load_all(".", quiet = TRUE)
 source("tests/testthat/helper-v1-reference.R")

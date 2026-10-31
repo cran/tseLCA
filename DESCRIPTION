@@ -1,11 +1,13 @@
 Package: tseLCA
 Type: Package
 Title: Three-Step Estimation for Latent Class Analysis
-Version: 2.1.0
+Version: 2.1.1
 Authors@R: c(
     person("Sam", "Lee", email = "samlee@arizona.edu", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0009-0007-2977-6661")),
-    person("Jay", "Goodliffe", email = "goodliffe@byu.edu", role = c("aut", "cph"))
+    person("Jay", "Goodliffe", email = "goodliffe@byu.edu", role = c("aut", "cph"),
+           comment = c(ORCID = "0000-0001-8272-7235")
+    )
     )
 Description: Bias-adjusted three-step estimation of latent class models with
     covariates and distal outcomes. The latent class measurement model is
@@ -39,10 +41,11 @@ URL: https://samleebyu.github.io/tseLCA/,
 BugReports: https://github.com/SamLeeBYU/tseLCA/issues
 VignetteBuilder: knitr, rmarkdown
 NeedsCompilation: no
-Packaged: 2026-10-24 02:22:13 UTC; samle
+Packaged: 2026-10-31 21:07:14 UTC; samle
 Author: Sam Lee [aut, cre, cph] (ORCID:
     <https://orcid.org/0009-0007-2977-6661>),
-  Jay Goodliffe [aut, cph]
+  Jay Goodliffe [aut, cph] (ORCID:
+    <https://orcid.org/0000-0001-8272-7235>)
 Maintainer: Sam Lee <samlee@arizona.edu>
 Repository: CRAN
-Date/Publication: 2026-10-24 03:30:02 UTC
+Date/Publication: 2026-10-31 21:30:02 UTC

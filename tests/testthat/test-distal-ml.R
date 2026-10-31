@@ -258,3 +258,34 @@ test_that("ML recovers means and variance of a wide outcome (modal and proportio
     expect_true(is.finite(f$sigma2[["se"]]))
   }
 })
+
+test_that("ML multinomial variance is symmetric and matches binomial for two categories", {
+  # tseLCA <= 2.1.0 computed H^-1 M H^-1; the ML multinomial H is the
+  # (asymmetric) Jacobian of the estimating equation, so the bread on the
+  # right must be t(H^-1)
+  d <- generate_data(800, "mid", "distal", seed = 2)
+  set.seed(3)
+  d$Zb <- rbinom(800, 1, 0.4)
+  d$Zf <- factor(d$Zb, labels = c("no", "yes"))
+  d$Z3 <- factor(sample(c("a", "b", "c"), 800, TRUE))
+  set.seed(1)
+  m <- tse_lca(cbind(Y1, Y2, Y3, Y4, Y5, Y6) ~ 1, data = d, nclass = 3)
+  for (a in c("modal", "proportional")) {
+    cl <- tse_classify(m, assignment = a)
+    for (se in c("robust", "corrected")) {
+      info <- paste(a, se)
+      V3 <- vcov(tse_distal(cl, Z3 ~ 1, family = "multinomial", se = se))
+      expect_equal(V3, t(V3), tolerance = 1e-12, info = info)
+      fm <- tse_distal(cl, Zf ~ 1, family = "multinomial", se = se)
+      fb <- tse_distal(cl, Zb ~ 1, family = "binomial", se = se)
+      s <- sqrt(diag(vcov(fm)))
+      expect_equal(unname(s[paste0("C", 1:3, ":no")]),
+                   unname(s[paste0("C", 1:3, ":yes")]), tolerance = 1e-10, info = info)
+      # delta method: SE(p) = p (1 - p) SE(logit p)
+      p <- plogis(coef(fb)[paste0("mu_C", 1:3)])
+      expect_equal(unname(s[paste0("C", 1:3, ":yes")]),
+                   unname(p * (1 - p) * sqrt(diag(vcov(fb)))[paste0("mu_C", 1:3)]),
+                   tolerance = 1e-4, info = info)
+    }
+  }
+})

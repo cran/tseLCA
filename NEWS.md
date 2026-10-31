@@ -1,3 +1,16 @@
+# tseLCA 2.1.1
+
+- Bug fix: the variance matrix of the ML estimator of multinomial distal
+  outcomes was computed as `H^-1 M H^-1`. The right-hand factor should be the
+  transpose of `H^-1`, and for the multinomial ML estimator `H` (the Jacobian of
+  the estimating equation) is not symmetric. The variance matrix was not
+  symmetric, and the standard errors were wrong, both robust and corrected, and
+  under both modal and proportional assignment. For a two-category outcome, the
+  standard errors of the two categories of a class now agree, and they match
+  those of the equivalent Binomial model. The point estimates, the BCH
+  estimator (whose `H` is diagonal), and the other distal families (whose `H`
+  is symmetric) are unchanged.
+
 # tseLCA 2.1.0
 
 - Bug fix: the standard errors of the BCH estimator of Poisson and Binomial
