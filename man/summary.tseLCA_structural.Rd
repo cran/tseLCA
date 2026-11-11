@@ -52,7 +52,9 @@ or \code{"summary.tseLCA_measurement"}. Print methods return their argument
 invisibly.
 }
 \description{
-\code{summary()} collects fit statistics and coefficient tables; printing the
+\code{print()} of a fitted model is brief: the header, fit statistics, and the
+estimates with their standard errors. \code{summary()} collects fit statistics
+and the full coefficient tables (with z values and p-values); printing the
 result formats the tables with \code{\link[stats:printCoefmat]{stats::printCoefmat()}}. The coefficient
 table (columns \code{Estimate}, \verb{Std. Error}, \verb{z value}, \verb{Pr(>|z|)}) can be
 extracted with \code{coef(summary(fit))}.

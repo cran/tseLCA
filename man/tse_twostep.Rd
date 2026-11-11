@@ -2,7 +2,7 @@
 % Please edit documentation in R/tse_structural.R
 \name{tse_twostep}
 \alias{tse_twostep}
-\title{Two-step estimates of covariate effects}
+\title{Two-step estimation of covariate effects (Bakk and Kuha 2018)}
 \usage{
 tse_twostep(object, formula, ref = 1, se = FALSE, control = NULL)
 }

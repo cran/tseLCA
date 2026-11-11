@@ -1,7 +1,7 @@
 Package: tseLCA
 Type: Package
 Title: Three-Step Estimation for Latent Class Analysis
-Version: 2.1.1
+Version: 2.1.2
 Authors@R: c(
     person("Sam", "Lee", email = "samlee@arizona.edu", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0009-0007-2977-6661")),
@@ -41,11 +41,11 @@ URL: https://samleebyu.github.io/tseLCA/,
 BugReports: https://github.com/SamLeeBYU/tseLCA/issues
 VignetteBuilder: knitr, rmarkdown
 NeedsCompilation: no
-Packaged: 2026-10-31 21:07:14 UTC; samle
+Packaged: 2026-11-11 03:00:09 UTC; samle
 Author: Sam Lee [aut, cre, cph] (ORCID:
     <https://orcid.org/0009-0007-2977-6661>),
   Jay Goodliffe [aut, cph] (ORCID:
     <https://orcid.org/0000-0001-8272-7235>)
 Maintainer: Sam Lee <samlee@arizona.edu>
 Repository: CRAN
-Date/Publication: 2026-10-31 21:30:02 UTC
+Date/Publication: 2026-11-11 04:10:02 UTC

@@ -234,7 +234,7 @@ tse_distal <- function(
   fit
 }
 
-#' Two-step estimates of covariate effects
+#' Two-step estimation of covariate effects (Bakk and Kuha 2018)
 #'
 #' Estimates the multinomial logit of class membership on covariates with
 #' the measurement-model parameters held fixed at their Step-1 values (Bakk

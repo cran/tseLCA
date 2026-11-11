@@ -390,3 +390,4 @@ example; \code{\link[=lca_step1]{lca_step1()}} for standalone Step-1 estimation
 own \code{startval} argument); \code{\link[=fitZ_from_fit0]{fitZ_from_fit0()}} and \code{\link[=fitZ_from_multiLCA]{fitZ_from_multiLCA()}}
 for two-step covariate estimation.
 }
+\keyword{internal}

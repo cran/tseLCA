@@ -218,7 +218,11 @@ test_that("print.tseLCA_covariate shows fit and coefficient table", {
   out <- capture_output(print(fit_cov))
   expect_match(out, "Estimator")
   expect_match(out, "Estimate")
-  expect_match(out, "Pr(>|z|)", fixed = TRUE)
+  expect_match(out, "Std. Error", fixed = TRUE)
+  # print() is brief; tests and p-values are in summary()
+  expect_false(grepl("Pr(>|z|)", out, fixed = TRUE))
+  expect_match(capture_output(print(summary(fit_cov))), "Pr(>|z|)", fixed = TRUE)
+  expect_false(identical(out, capture_output(print(summary(fit_cov)))))
 })
 
 test_that("print.tseLCA_distal shows llik", {
@@ -252,6 +256,6 @@ test_that("p-value significance stars appear when SE is tiny", {
   obj$three_step_vcov <- diag(rep(1e-8, 4L))
   rownames(obj$three_step_vcov) <- colnames(obj$three_step_vcov) <-
     c("(Intercept):C2", "Zp:C2", "(Intercept):C3", "Zp:C3")
-  out <- capture_output(print(obj))
+  out <- capture_output(print(summary(obj)))
   expect_match(out, "*", fixed = TRUE)
 })

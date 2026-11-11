@@ -1,6 +1,6 @@
-69679fec435971fe5207a1631d90b50e *DESCRIPTION
+e87242d8ed7f7951fb0afbd939589c55 *DESCRIPTION
 3cde24453fe62a5d6ad18cf9c2000f3f *NAMESPACE
-947b55a57106e4b1303a446685c6699c *NEWS.md
+b4d1bac8aa1fd9eed36a76f1a9bb860c *NEWS.md
 dfbed7a17aef7edde2b4538ebceb7758 *R/clean.R
 2b8ca30057664e17758f879b5ead0075 *R/control.R
 330e5a37aca284c247a958e33f7074c6 *R/deprecated.R
@@ -9,17 +9,17 @@ f54814ecf9de6584ce91b14ba05936b6 *R/distal-ml.R
 93aaccb8d9fa1cc8b8262d0e9f11c378 *R/imports.R
 86a3d27083a933fece02762f9a1290e8 *R/lca_measurement.R
 aab9f49fdbd5a50b5634be8beb3ec956 *R/likelihood.R
-e18f837e0a062a73e97bdc664ce1b647 *R/methods-tseLCA.R
+81613bb38c2b3fd80a432b83456d8280 *R/methods-tseLCA.R
 7dfbb9ea53591a91f5852e6157c35e92 *R/step1.R
 3ea28094ea94ff7c0d7e4ab4da86d6ce *R/step2.R
 bf4aebc1ea81b3573878a2a0d354a694 *R/step3-covariate.R
 a418552209582c48c26ae69e5cfba66f *R/step3-distal.R
-99bd05309778874ca2e221edb50d4f92 *R/three_step.R
+728e4ab863abcb14b3a81667278d4cc0 *R/three_step.R
 5a3f017da64914f93e31a4f5c7998ba2 *R/tseLCA-package.R
 3cc8528690784280a8cbbca326d353d2 *R/tseLCA.R
 ab2172c7343a1b4a594189aa9cea8344 *R/tse_classify.R
 b2e99931ed658e125604b6162dd7c203 *R/tse_lca.R
-9a1cf165230c2c2f6a4ec5cc6ef661f8 *R/tse_structural.R
+cd5b5c3c4c2b2a57be07d833713fcd85 *R/tse_structural.R
 9cb0472e7f51d5e8d72032aff867cf31 *R/vcov.R
 04527c71e74a5c313b992fb5a9c218fb *README.md
 9d40159f50a5fc9949cbfe95a2884126 *build/partial.rdb
@@ -28,7 +28,7 @@ b2e99931ed658e125604b6162dd7c203 *R/tse_lca.R
 c8259fc144a994b0ae1032aa115649b9 *inst/WORDLIST
 7e372928ca30b0b1d9e2d459dc6ece68 *inst/doc/tseLCA-workflow.R
 852c145b56221867502ad5417ee7c913 *inst/doc/tseLCA-workflow.Rmd
-ae0e9f0107d397fc0c12c97a3b643825 *inst/doc/tseLCA-workflow.html
+53c101bde7a5d94f12cc309c9ae7a742 *inst/doc/tseLCA-workflow.html
 7535848242bd572f809a897af91a7914 *man/anova.tseLCA_covariate.Rd
 f127335a15f22440373a6e98a3ee2e2b *man/as_tse_lca.Rd
 3eaef5a9f2e9d65659a7f4996ed3a0b1 *man/best_model.Rd
@@ -63,8 +63,8 @@ eb810ff9d83352a59beedb582dd31639 *man/parse_rebase.Rd
 1ebad6e9447ad4598f7679953b31c899 *man/predict.tseLCA_covariate.Rd
 951e954a69ca48be8fc82e365f8b41c9 *man/predict.tseLCA_measurement.Rd
 525ceda4e06c859f1b54c031ec27358b *man/relevel.tseLCA_covariate.Rd
-cce760d8ce135c70abe31dd25b9e2a53 *man/summary.tseLCA_structural.Rd
-77b988020a07f366f7cca2b8852c8e17 *man/three_step.Rd
+a8d6f0a76ef498b47bb053335e4549e8 *man/summary.tseLCA_structural.Rd
+865b5344a2b9ed9f3b2805671c51d004 *man/three_step.Rd
 ca39b4d3c2e2ab62890edf079b4247ef *man/tseLCA-package.Rd
 8049bbef161bee109a5cb1c3d1038333 *man/tseLCA.Rd
 5beda3a2e471dc213ea747749cd9f286 *man/tse_classify.Rd
@@ -72,7 +72,7 @@ ca39b4d3c2e2ab62890edf079b4247ef *man/tseLCA-package.Rd
 75f8140a9994a29668b4368397a642ba *man/tse_covariate.Rd
 f9e2f5a36f1c61e4442c7dd68df7487a *man/tse_distal.Rd
 c5f041ae40eaaac800a570268cc4b243 *man/tse_lca.Rd
-91eb1271e87b467c4010c19b665e58bf *man/tse_twostep.Rd
+6eef68cf95fc920512a334490fa2621e *man/tse_twostep.Rd
 879cb0dd9229061bdd97ccbcd955a2cd *man/vcov.tseLCA_structural.Rd
 332173f20d20942c02019350ea4dcadc *tests/spelling.R
 27e85e0f71b70f04722bb56e341e47c0 *tests/testthat.R
@@ -92,7 +92,7 @@ cda57171b5a75da4b2d7211d4dea15e6 *tests/testthat/test-dgp.R
 cdcb93ef142ec020f80b26e37ae0c6c8 *tests/testthat/test-lca.R
 78b8992b9493fdbf27636617432f1304 *tests/testthat/test-methods.R
 92fe66a154b12e327ccd9866c67b1775 *tests/testthat/test-regression-v1.R
-16dde404944561072cc4c802e44a1e84 *tests/testthat/test-s3.R
+e6d5b98fe2be2f4a2447a339e91302a0 *tests/testthat/test-s3.R
 2d1e286bf90367637f731206dade2479 *tests/testthat/test-structural.R
 1b0e8564a69231468953b9d457fdca89 *tests/testthat/test-wrapper.R
 852c145b56221867502ad5417ee7c913 *vignettes/tseLCA-workflow.Rmd

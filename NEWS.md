@@ -1,3 +1,15 @@
+# tseLCA 2.1.2
+
+- `print()` of a fitted structural model is now compact. It gives the header, the fit
+  statistics, and the estimates with their standard errors. It previously gave
+  the same output as `summary()`, which remains the full report (z values,
+  p-values, significance stars, and the covariate-adjusted entropy R-squared).
+- The deprecated `three_step()` is now documented with `\keyword{internal}`,
+  so it no longer appears in `help(package = "tseLCA")`. It is still exported
+  and works as before.
+- `tse_twostep()` has a clearer help title, "Two-step estimation of covariate
+  effects (Bakk and Kuha 2018)".
+
 # tseLCA 2.1.1
 
 - Bug fix: the variance matrix of the ML estimator of multinomial distal

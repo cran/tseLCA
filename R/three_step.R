@@ -326,6 +326,7 @@
 #' | `n_init`, `maxIter.measurement`, `measurement.tol`, `iter.measurement`, `R2.threshold`, `em.maxIter`, `covariate.tol`, `boundary.tol`, `correct.spec` | [tse_control()] |
 #' | `get.twostep.vcov` | `tse_twostep(se = TRUE)` |
 #'
+#' @keywords internal
 #' @export
 three_step <- function(
   data,

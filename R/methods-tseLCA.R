@@ -28,10 +28,14 @@
 #' @noRd
 .flatten_coef <- function(m) {
   rn <- rownames(m)
-  if (is.null(rn)) rn <- paste0("V", seq_len(nrow(m)))
+  if (is.null(rn)) {
+    rn <- paste0("V", seq_len(nrow(m)))
+  }
   rn[rn == ""] <- "(Intercept)"
   cn <- colnames(m)
-  if (is.null(cn)) cn <- paste0("C", seq_len(ncol(m)) + 1L)
+  if (is.null(cn)) {
+    cn <- paste0("C", seq_len(ncol(m)) + 1L)
+  }
   stats::setNames(as.vector(m), as.vector(outer(rn, cn, paste, sep = ":")))
 }
 
@@ -245,7 +249,9 @@ item_probs.tseLCA <- function(object, se = FALSE, ...) {
   ivItemcat <- s1$ivItemcat
   iT <- length(fit0$vPi)
   softmax_se <- function(p, V) {
-    J <- p * (outer(seq_along(p), seq_along(p), "==") - matrix(p, length(p), length(p), byrow = TRUE))
+    J <- p *
+      (outer(seq_along(p), seq_along(p), "==") -
+        matrix(p, length(p), length(p), byrow = TRUE))
     J <- J[, -1L, drop = FALSE]
     sqrt(pmax(diag(J %*% V %*% t(J)), 0))
   }
@@ -254,7 +260,10 @@ item_probs.tseLCA <- function(object, se = FALSE, ...) {
     se_pi <- 0
   } else {
     V <- vcov.tseLCA_measurement(object)
-    se_pi <- softmax_se(as.vector(fit0$vPi), V[seq_len(iT - 1L), seq_len(iT - 1L), drop = FALSE])
+    se_pi <- softmax_se(
+      as.vector(fit0$vPi),
+      V[seq_len(iT - 1L), seq_len(iT - 1L), drop = FALSE]
+    )
   }
   Phi <- expand_Phi(fit0$mPhi, ivItemcat) # every category of every item
   n_free <- sum(ivItemcat - 1L)
@@ -264,7 +273,10 @@ item_probs.tseLCA <- function(object, se = FALSE, ...) {
   for (t in seq_len(iT)) {
     for (h in seq_along(ivItemcat)) {
       rows <- first[h] + seq_len(ivItemcat[h]) - 1L
-      idx <- (iT - 1L) + (t - 1L) * n_free + free_at[h] + seq_len(ivItemcat[h] - 1L)
+      idx <- (iT - 1L) +
+        (t - 1L) * n_free +
+        free_at[h] +
+        seq_len(ivItemcat[h] - 1L)
       se_all[rows, t] <- softmax_se(Phi[rows, t], V[idx, idx, drop = FALSE])
     }
   }
@@ -275,7 +287,10 @@ item_probs.tseLCA <- function(object, se = FALSE, ...) {
   }))
   se_items <- se_all[keep, , drop = FALSE]
   dimnames(se_items) <- dimnames(fit0$mPhi)
-  list(class_sizes = stats::setNames(se_pi, paste0("C", seq_len(iT))), item_probs = se_items)
+  list(
+    class_sizes = stats::setNames(se_pi, paste0("C", seq_len(iT))),
+    item_probs = se_items
+  )
 }
 
 # -- methods shared by all tseLCA objects -------------------------------------------
@@ -334,7 +349,10 @@ nobs.tseLCA <- function(object, ...) .fit_part(object)$nobs
 #' @export
 plot.tseLCA <- function(x, horiz = FALSE, clab = NULL, ...) {
   if (x$n_classes < 2L) {
-    stop("Item-response profile plots need at least two classes.", call. = FALSE)
+    stop(
+      "Item-response profile plots need at least two classes.",
+      call. = FALSE
+    )
   }
   fit0 <- x$measurement_model$fit0
   if (inherits(fit0, "multiLCA")) {
@@ -343,13 +361,30 @@ plot.tseLCA <- function(x, horiz = FALSE, clab = NULL, ...) {
     # measurement models not estimated by multilevLCA (as_tse_lca())
     probs <- item_probs(x)
     graphics::matplot(
-      probs, type = "b", pch = seq_len(ncol(probs)), lty = 1, col = seq_len(ncol(probs)),
-      ylim = c(0, 1), xaxt = "n", xlab = "", ylab = "Item-response probability", ...
+      probs,
+      type = "b",
+      pch = seq_len(ncol(probs)),
+      lty = 1,
+      col = seq_len(ncol(probs)),
+      ylim = c(0, 1),
+      xaxt = "n",
+      xlab = "",
+      ylab = "Item-response probability",
+      ...
     )
-    graphics::axis(1, at = seq_len(nrow(probs)), labels = sub("^P\\((.*)\\|C\\)$", "\\1", rownames(probs)),
-                   las = if (horiz) 1 else 2)
-    graphics::legend("topright", legend = if (is.null(clab)) colnames(probs) else clab,
-                     pch = seq_len(ncol(probs)), col = seq_len(ncol(probs)), bty = "n")
+    graphics::axis(
+      1,
+      at = seq_len(nrow(probs)),
+      labels = sub("^P\\((.*)\\|C\\)$", "\\1", rownames(probs)),
+      las = if (horiz) 1 else 2
+    )
+    graphics::legend(
+      "topright",
+      legend = if (is.null(clab)) colnames(probs) else clab,
+      pch = seq_len(ncol(probs)),
+      col = seq_len(ncol(probs)),
+      bty = "n"
+    )
   }
   invisible(NULL)
 }
@@ -375,14 +410,26 @@ plot.tseLCA <- function(x, horiz = FALSE, clab = NULL, ...) {
   first <- cumsum(c(1L, utils::head(ivItemcat, -1L)))
 
   est <- log(vPi[-1L] / vPi[1L])
-  nms <- if (iT > 1L) paste0("log(pi_", cls[-1L], "/pi_", cls[1L], ")") else character(0)
+  nms <- if (iT > 1L) {
+    paste0("log(pi_", cls[-1L], "/pi_", cls[1L], ")")
+  } else {
+    character(0)
+  }
   for (t in seq_len(iT)) {
     for (h in seq_len(H)) {
       for (k in seq_len(ivItemcat[h] - 1L)) {
         est <- c(est, log(Phi[first[h] + k, t] / Phi[first[h], t]))
-        nms <- c(nms, sprintf(
-          "log(P(%s=%d|%s)/P(%s=0|%s))", items[h], k, cls[t], items[h], cls[t]
-        ))
+        nms <- c(
+          nms,
+          sprintf(
+            "log(P(%s=%d|%s)/P(%s=0|%s))",
+            items[h],
+            k,
+            cls[t],
+            items[h],
+            cls[t]
+          )
+        )
       }
     }
   }
@@ -441,9 +488,13 @@ coef.tseLCA_structural <- function(
   if (step == "two_step" && is.null(parts$covariate)) {
     stop("Two-step estimates exist only for covariate models.", call. = FALSE)
   }
-  if (step == "two_step") parts <- parts["covariate"]
+  if (step == "two_step") {
+    parts <- parts["covariate"]
+  }
   if (matrix) {
-    out <- lapply(parts, function(p) if (step == "two_step") p$two_step else p$three_step)
+    out <- lapply(parts, function(p) {
+      if (step == "two_step") p$two_step else p$three_step
+    })
     return(if (length(out) == 1L) out[[1L]] else out)
   }
   unlist(unname(Map(.component_coef, parts, names(parts), step)))
@@ -501,7 +552,9 @@ vcov.tseLCA_structural <- function(
     parts <- parts["covariate"]
   }
   Vs <- lapply(parts, .component_vcov, step = step)
-  if (length(Vs) == 1L) return(Vs[[1L]])
+  if (length(Vs) == 1L) {
+    return(Vs[[1L]])
+  }
   nms <- unname(unlist(lapply(Vs, rownames)))
   V <- matrix(NA_real_, length(nms), length(nms), dimnames = list(nms, nms))
   at <- 0L
@@ -531,7 +584,10 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
     V <- s1$step1_vcov
     nms <- names(.measurement_coef(object))
     dimnames(V) <- list(nms, nms)
-    attr(V, "parameterization") <- "log-ratio (unconstrained); NOT probabilities"
+    attr(
+      V,
+      "parameterization"
+    ) <- "log-ratio (unconstrained); NOT probabilities"
     return(V)
   }
   ref_idx <- if (!is.null(s1$ref_idx)) s1$ref_idx else 1L
@@ -544,8 +600,12 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
     )
   }
   V <- lca_indiv_varmat(
-    sample1$Y.exp, sample1$mDesign, s1$fit0, sample1$ivItemcat,
-    boundary.tol = boundary.tol, u_post = sample1$u_post
+    sample1$Y.exp,
+    sample1$mDesign,
+    s1$fit0,
+    sample1$ivItemcat,
+    boundary.tol = boundary.tol,
+    u_post = sample1$u_post
   )$Varmat
   nms <- names(.measurement_coef(object))
   dimnames(V) <- list(nms, nms)
@@ -563,7 +623,11 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
   s1 <- object$measurement_model
   ivItemcat <- s1$ivItemcat
   Y <- s1$Y.exp
-  M <- if (!is.null(s1$mDesign.exp)) s1$mDesign.exp else matrix(1, nrow(Y), ncol(Y))
+  M <- if (!is.null(s1$mDesign.exp)) {
+    s1$mDesign.exp
+  } else {
+    matrix(1, nrow(Y), ncol(Y))
+  }
   counts <- colSums(Y * M)
   blocks <- list()
   at <- 0L
@@ -592,7 +656,9 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
 
 #' Summarize a fitted tseLCA model
 #'
-#' `summary()` collects fit statistics and coefficient tables; printing the
+#' `print()` gives the header, fit statistics, and the
+#' estimates with their standard errors. `summary()` collects fit statistics
+#' and the full coefficient tables (with z values and p-values); printing the
 #' result formats the tables with [stats::printCoefmat()]. The coefficient
 #' table (columns `Estimate`, `Std. Error`, `z value`, `Pr(>|z|)`) can be
 #' extracted with `coef(summary(fit))`.
@@ -615,9 +681,13 @@ vcov.tseLCA_measurement <- function(object, boundary.tol = 1e-2, ...) {
 #' @export
 summary.tseLCA_structural <- function(object, ...) {
   parts <- .components(object)
-  tables <- Map(function(p, type) {
-    .coefmat(.component_coef(p, type), p$three_step_vcov)
-  }, parts, names(parts))
+  tables <- Map(
+    function(p, type) {
+      .coefmat(.component_coef(p, type), p$three_step_vcov)
+    },
+    parts,
+    names(parts)
+  )
   fp <- .fit_part(object)
   structure(
     list(
@@ -654,25 +724,46 @@ coef.summary.tseLCA_structural <- function(object, ...) {
   )
   cat(title, "\n", sep = "")
   info <- sprintf("  Classes: %d   Estimator: %s", x$n_classes, x$estimator)
-  if (x$type != "covariate") info <- paste0(info, "   Family: ", x$family)
+  if (x$type != "covariate") {
+    info <- paste0(info, "   Family: ", x$family)
+  }
   cat(info, sprintf("   N: %d", attr(x$logLik, "nobs")), "\n", sep = "")
   cat(sprintf(
     "  Log-lik: %.4f (df = %d)   AIC: %.2f   BIC: %.2f\n",
-    as.numeric(x$logLik), attr(x$logLik, "df"), x$AIC, x$BIC
+    as.numeric(x$logLik),
+    attr(x$logLik, "df"),
+    x$AIC,
+    x$BIC
   ))
 }
 
-.print_tables <- function(x, digits, signif.stars, ...) {
+.print_tables <- function(x, digits, signif.stars, brief = FALSE, ...) {
   for (nm in names(x$coefficients)) {
-    cat(if (nm == "covariate") {
-      "\nCovariate effects on class membership (multinomial logit):\n"
-    } else {
-      sprintf("\nDistal outcome %s by class:\n", .distal_scale(x$family))
-    })
-    stats::printCoefmat(
-      x$coefficients[[nm]], digits = digits, signif.stars = signif.stars,
-      has.Pvalue = TRUE, P.values = TRUE, ...
+    cat(
+      if (nm == "covariate") {
+        "\nCovariate effects on class membership (multinomial logit):\n"
+      } else {
+        sprintf("\nDistal outcome %s by class:\n", .distal_scale(x$family))
+      }
     )
+    if (brief) {
+      stats::printCoefmat(
+        x$coefficients[[nm]][, 1:2, drop = FALSE],
+        digits = digits,
+        signif.stars = FALSE,
+        has.Pvalue = FALSE,
+        ...
+      )
+    } else {
+      stats::printCoefmat(
+        x$coefficients[[nm]],
+        digits = digits,
+        signif.stars = signif.stars,
+        has.Pvalue = TRUE,
+        P.values = TRUE,
+        ...
+      )
+    }
     if (nm == "distal" && identical(x$family, "multinomial")) {
       .multinomial_caveat_note()
     }
@@ -705,7 +796,12 @@ print.tseLCA_structural <- function(
 ) {
   s <- summary(x)
   .structural_header(s)
-  .print_tables(s, digits, signif.stars, ...)
+  .print_tables(s, digits, signif.stars, brief = TRUE, ...)
+  cat(
+    "
+Use summary() for z values, p-values, and the entropy R-squared.
+"
+  )
   invisible(x)
 }
 
@@ -731,9 +827,14 @@ summary.tseLCA_measurement <- function(object, ...) {
   cat(sprintf("  Classes: %d   N: %d\n", x$n_classes, attr(x$logLik, "nobs")))
   cat(sprintf(
     "  Log-lik: %.4f (df = %d)   AIC: %.2f   BIC: %.2f\n",
-    as.numeric(x$logLik), attr(x$logLik, "df"), x$AIC, x$BIC
+    as.numeric(x$logLik),
+    attr(x$logLik, "df"),
+    x$AIC,
+    x$BIC
   ))
-  if (!is.null(x$R2entr) && !is.na(x$R2entr)) cat(sprintf("  Entropy R\u00b2: %.4f\n", x$R2entr))
+  if (!is.null(x$R2entr) && !is.na(x$R2entr)) {
+    cat(sprintf("  Entropy R\u00b2: %.4f\n", x$R2entr))
+  }
 }
 
 #' @rdname summary.tseLCA_structural
@@ -889,4 +990,3 @@ omnibus_test.tseLCA_both <- function(object, ...) {
     class = "htest"
   )
 }
-
